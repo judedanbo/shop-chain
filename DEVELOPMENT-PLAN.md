@@ -1,14 +1,14 @@
-# ShopChain — Laravel Development Plan
+# ShopChain — Development Plan
 
-**Date:** 2026-02-27
+**Date:** 2026-02-28
 **Status:** Draft
-**Source docs:** `FUNCTIONAL-SPEC.md`, `DATABASE-SCHEMA.md`, existing React prototype
+**Source docs:** `FUNCTIONAL-SPEC.md`, `DATABASE-SCHEMA.md`, existing React prototype (migrated to Vue/Nuxt)
 
 ---
 
 ## Architecture Overview
 
-Three-layer separation with a shared domain core:
+Three-layer separation: a shared domain core, an API application, and a standalone web application that communicates with the API over HTTP:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -18,26 +18,27 @@ Three-layer separation with a shared domain core:
 │  Eloquent Models · Service Classes · Events/Listeners           │
 │  Policies · Enums · Form Requests · Value Objects · Traits      │
 │  Database Migrations · Seeders · Factories                      │
-└──────────┬────────────────────────────────┬─────────────────────┘
-           │                                │
-           ▼                                ▼
-┌────────────────────────┐    ┌──────────────────────────────────┐
-│     API Application    │    │       Web Application            │
-│    (shopchain-api)     │    │      (shopchain-web)             │
-│                        │    │                                  │
-│  Laravel 12            │    │  Laravel 12 + Inertia.js + React │
-│  Passport (OAuth2)     │    │  Session auth (Passport client)  │
-│  REST endpoints        │    │  Inertia controllers             │
-│  Mobile + external API │    │  Server-side rendering           │
-│  Rate limiting         │    │  Asset pipeline (Vite)           │
-│  API versioning        │    │                                  │
-│  Reverb broadcasting   │    │  Reverb client (Echo)            │
-└────────────────────────┘    └──────────────────────────────────┘
-           │                                │
-           ▼                                ▼
+└──────────┬──────────────────────────────────────────────────────┘
+           │
+           ▼
+┌────────────────────────┐         ┌──────────────────────────────┐
+│     API Application    │         │      Web Application         │
+│    (shopchain-api)     │◄─HTTP── │     (shopchain-web)          │
+│                        │         │                              │
+│  Laravel 12            │         │  Nuxt 3 + Vue 3 + TypeScript │
+│  Passport (OAuth2)     │         │  OAuth2 PKCE (token-based)   │
+│  REST endpoints        │         │  Nuxt file-based routing     │
+│  Mobile + external API │         │  Nuxt UI component library   │
+│  Rate limiting         │         │  Pinia state management      │
+│  API versioning        │         │  Reverb client (Echo)        │
+│  Reverb broadcasting   │         │                              │
+│  CORS (allow web app)  │         │                              │
+└────────────────────────┘         └──────────────────────────────┘
+           │
+           ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      PostgreSQL Database                        │
-│    (shared, 59 tables — 52 app + 7 framework, RLS enabled)     │
+│    (shared, 59 tables — 52 app + 7 framework, RLS enabled)      │
 └─────────────────────────────────────────────────────────────────┘
            │
            ▼
@@ -48,38 +49,44 @@ Three-layer separation with a shared domain core:
 └──────────────────────┘  └───────────────┘  └──────────────────┘
 ```
 
+> **Note:** The web application does NOT connect directly to PostgreSQL. All data access goes through the API. CORS must be configured on the API to allow requests from the web application's origin.
+
 **Key decisions:**
 
-| Decision          | Choice                           | Rationale                                                                |
-| ----------------- | -------------------------------- | ------------------------------------------------------------------------ |
-| Separation model  | Shared Composer package + 2 apps | Independent deployment, no logic duplication                             |
-| Authentication    | Laravel Passport (OAuth2)        | Full OAuth2 for mobile + third-party; web app acts as first-party client |
-| Database          | PostgreSQL (shared)              | Matches DATABASE-SCHEMA.md; JSONB, enums, RLS for multi-tenancy          |
-| Real-time         | Laravel Reverb                   | First-party WebSocket server; kitchen display, notifications, POS sync   |
-| File storage      | S3-compatible                    | Product images, logos, CSV/PDF exports, receipts                         |
-| Queue             | Redis + Laravel Horizon          | Notifications, exports, report generation, batch operations              |
-| Cache             | Redis                            | Session storage, plan usage counters, rate limiting                      |
-| Search            | Laravel Scout + Meilisearch      | Product search, barcode lookup, customer search                          |
-| RBAC              | spatie/laravel-permission         | Team-scoped roles/permissions, multi-guard, wildcard support, 86M+ DLs   |
-| DTOs & Resources  | spatie/laravel-data               | Single class = DTO + Form Request + API Resource + TS type generation    |
-| Status machines   | spatie/laravel-model-states       | Declarative state transitions for PO, sale, order, transfer lifecycles   |
-| Audit logging     | spatie/laravel-activitylog        | Before/after snapshots, causer tracking, custom properties (IP, device)  |
-| Feature flags     | laravel/pennant                   | Plan-gated feature checks; replaces scattered conditionals               |
-| API filtering     | spatie/laravel-query-builder      | Declarative filter/sort/include from URL params across all list endpoints |
-| File management   | spatie/laravel-medialibrary       | Model-associated uploads, S3, image conversions, signed URLs             |
-| Money handling    | elegantly/laravel-money           | brick/money Eloquent casting; GHS (pesewas), no float precision errors   |
-| PDF generation    | spatie/laravel-pdf                | Chromium/Cloudflare rendering; Tailwind-compatible receipts & reports    |
-| 2FA               | laragear/two-factor               | TOTP with recovery codes, migrations, throttling (replaces pragmarx)     |
-| Billing           | devtobi/cashier-paystack          | Cashier-style Paystack subscriptions + unicodeveloper/laravel-paystack   |
-| Barcode           | picqer/php-barcode-generator      | SVG/PNG barcode generation; Code128, EAN-13, UPC-A; no GD required      |
-| QR codes          | simplesoftwareio/simple-qrcode    | Receipt verification QR codes for public verify endpoint                 |
-| Excel I/O         | maatwebsite/excel                 | Chunked import/export, queued jobs, validation with skip-on-failure      |
-| Push notifications| kreait/laravel-firebase + laravel-notification-channels/fcm | FCM push via Laravel notification pipeline |
-| SMS (Ghana)       | samuelmwangiw/africastalking-laravel | Africa's Talking SMS/voice; laravel-notification-channels/twilio fallback |
-| TypeScript sync   | spatie/laravel-typescript-transformer | Auto-generate TS interfaces from Data classes                         |
-| Settings          | spatie/laravel-settings           | Typed settings groups with DB storage, casting, encryption               |
-| Backups           | spatie/laravel-backup             | Scheduled PostgreSQL + file backups to S3 with retention policies        |
-| Mobile API parity | Full parity from day one         | Every web feature has a corresponding API endpoint                       |
+| Decision           | Choice                                                      | Rationale                                                                             |
+| ------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Separation model   | Shared Composer package + 2 apps                            | Independent deployment, no logic duplication                                          |
+| Authentication     | Laravel Passport (OAuth2)                                   | Full OAuth2 for mobile + third-party; web SPA uses authorization code grant with PKCE |
+| Database           | PostgreSQL (shared)                                         | Matches DATABASE-SCHEMA.md; JSONB, enums, RLS for multi-tenancy                       |
+| Real-time          | Laravel Reverb                                              | First-party WebSocket server; kitchen display, notifications, POS sync                |
+| File storage       | S3-compatible                                               | Product images, logos, CSV/PDF exports, receipts                                      |
+| Queue              | Redis + Laravel Horizon                                     | Notifications, exports, report generation, batch operations                           |
+| Cache              | Redis                                                       | Session storage, plan usage counters, rate limiting                                   |
+| Search             | Laravel Scout + Meilisearch                                 | Product search, barcode lookup, customer search                                       |
+| RBAC               | spatie/laravel-permission                                   | Team-scoped roles/permissions, multi-guard, wildcard support, 86M+ DLs                |
+| DTOs & Resources   | spatie/laravel-data                                         | Single class = DTO + Form Request + API Resource + TS type generation                 |
+| Status machines    | spatie/laravel-model-states                                 | Declarative state transitions for PO, sale, order, transfer lifecycles                |
+| Audit logging      | spatie/laravel-activitylog                                  | Before/after snapshots, causer tracking, custom properties (IP, device)               |
+| Feature flags      | laravel/pennant                                             | Plan-gated feature checks; replaces scattered conditionals                            |
+| API filtering      | spatie/laravel-query-builder                                | Declarative filter/sort/include from URL params across all list endpoints             |
+| File management    | spatie/laravel-medialibrary                                 | Model-associated uploads, S3, image conversions, signed URLs                          |
+| Money handling     | elegantly/laravel-money                                     | brick/money Eloquent casting; GHS (pesewas), no float precision errors                |
+| PDF generation     | spatie/laravel-pdf                                          | Chromium/Cloudflare rendering; Tailwind-compatible receipts & reports                 |
+| 2FA                | laragear/two-factor                                         | TOTP with recovery codes, migrations, throttling (replaces pragmarx)                  |
+| Billing            | devtobi/cashier-paystack                                    | Cashier-style Paystack subscriptions + unicodeveloper/laravel-paystack                |
+| Barcode            | picqer/php-barcode-generator                                | SVG/PNG barcode generation; Code128, EAN-13, UPC-A; no GD required                    |
+| QR codes           | simplesoftwareio/simple-qrcode                              | Receipt verification QR codes for public verify endpoint                              |
+| Excel I/O          | maatwebsite/excel                                           | Chunked import/export, queued jobs, validation with skip-on-failure                   |
+| Push notifications | kreait/laravel-firebase + laravel-notification-channels/fcm | FCM push via Laravel notification pipeline                                            |
+| SMS (Ghana)        | samuelmwangiw/africastalking-laravel                        | Africa's Talking SMS/voice; laravel-notification-channels/twilio fallback             |
+| TypeScript sync    | dedoc/scramble + openapi-typescript                         | Auto-generate OpenAPI spec from API; generate TS types from spec                      |
+| Frontend framework | Nuxt 3 (Vue 3 + TypeScript)                                 | File-based routing, SSR/SPA, auto-imports, built-in data fetching                     |
+| UI library         | Nuxt UI (Radix Vue + Tailwind CSS)                          | Official Nuxt component library; accessible, themeable, consistent                    |
+| State management   | Pinia                                                       | Official Vue state manager; modular stores, devtools, SSR support                     |
+| CORS               | fruitcake/laravel-cors (or Laravel 11+ built-in)            | Required for standalone SPA to call API cross-origin                                  |
+| Settings           | spatie/laravel-settings                                     | Typed settings groups with DB storage, casting, encryption                            |
+| Backups            | spatie/laravel-backup                                       | Scheduled PostgreSQL + file backups to S3 with retention policies                     |
+| Mobile API parity  | Full parity from day one                                    | Every web feature has a corresponding API endpoint                                    |
 
 ---
 
@@ -98,11 +105,16 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
   - Configure API-only middleware stack (no sessions, no CSRF)
   - API versioning via route prefix (`/api/v1/`)
   - Configure rate limiting (per-user, per-IP)
-- Create `apps/web/` — Laravel 12 + Inertia.js application
-  - Install Inertia.js server-side adapter
-  - Install React 19 + TypeScript via Vite
-  - Migrate existing React components from prototype
-  - Configure Inertia middleware for shared data (auth user, shop, permissions, flash)
+- Create `apps/web/` — Nuxt 3 standalone application
+  - Initialize with `npx nuxi@latest init apps/web`
+  - Install core modules: `@nuxt/ui`, `@pinia/nuxt`, `@vueuse/nuxt`
+  - Install `laravel-echo` + `pusher-js` for Reverb WebSocket client
+  - Configure `nuxt.config.ts`: runtime config for API base URL, OAuth2 client ID, Reverb host
+  - Set up OAuth2 PKCE auth plugin (authorization code grant, token storage, refresh)
+  - Set up file-based routing under `pages/`
+  - Create route middleware: `auth`, `guest`, `shop`, `permission`
+  - Create API plugin (`$fetch` wrapper with base URL, token injection, error interceptors)
+- Configure CORS on API application to allow web app origin
 - Shared package dependencies (install in `packages/shopchain-core/`):
   - **Tier 1 — Architectural (all phases depend on these):**
     - `spatie/laravel-data` — unified DTOs, form requests, API resources, TS type source
@@ -122,7 +134,7 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
   - **Tier 3 — Utilities (installed as needed):**
     - `picqer/php-barcode-generator` — barcode SVG/PNG generation (Phase 2.2)
     - `simplesoftwareio/simple-qrcode` — receipt verification QR codes (Phase 3.3)
-    - `spatie/laravel-typescript-transformer` — auto-generate TS types from Data classes (Phase 12.4)
+    - `dedoc/scramble` — auto-generate OpenAPI spec from API routes + Data classes (Phase 12.5)
     - `spatie/laravel-settings` — typed settings groups with DB storage (Phase 10.1)
     - `spatie/laravel-backup` — scheduled PostgreSQL + file backups to S3 (Phase 14.3)
     - `spatie/laravel-sluggable` — auto-slug generation for products, categories (Phase 2.2)
@@ -226,12 +238,16 @@ Create all 52 models with relationships, scopes, accessors, and casts.
 - **Passport setup (API app):**
   - Personal access tokens for mobile clients
   - Authorization code grant for third-party integrations (Max plan API access)
-  - First-party client for web app (password grant or client credentials)
+  - First-party SPA client for web app (authorization code grant with PKCE, no client secret)
   - Token scopes matching plan features (e.g., `api-access` scope only for Max plan)
 
-- **Web app auth:**
-  - Session-based authentication via Passport first-party client
-  - Inertia middleware shares auth state on every request
+- **Web app auth (Nuxt SPA via OAuth2 PKCE):**
+  - Authorization code grant with PKCE (Proof Key for Code Exchange) — no client secret required
+  - Nuxt auth plugin handles the OAuth2 flow: redirect to `/oauth/authorize`, exchange code for tokens
+  - Access token stored in memory (not localStorage) for XSS protection; refresh token in secure httpOnly cookie via API proxy endpoint
+  - Automatic token refresh via interceptor on 401 responses
+  - Nuxt route middleware (`auth`) redirects unauthenticated users to login
+  - Nuxt route middleware (`guest`) redirects authenticated users away from login/register
 
 - **Multi-tenancy middleware:**
   - `SetCurrentShop` — resolves shop from route parameter or header, sets `app.current_shop_id` on DB connection
@@ -279,7 +295,7 @@ Create all 52 models with relationships, scopes, accessors, and casts.
   - Route parameter (`/api/v1/shops/{shop}/products`)
   - Request header (`X-Shop-Id`) for mobile convenience
 - Plan enforcement service:
-  - `PlanEnforcementService::canAdd(shop, resourceKey)` — mirrors the `canAdd()` logic from ShopContext
+  - `PlanEnforcementService::canAdd(shop, resourceKey)` — mirrors the `canAdd()` logic from the shop Pinia store
   - `PlanEnforcementService::computeUsage(shop)` — live usage computation
   - Middleware `EnforcePlanLimits` for write operations
 
@@ -287,7 +303,7 @@ Create all 52 models with relationships, scopes, accessors, and casts.
 
 ## Phase 2 — Core Business Modules
 
-Build the domain logic and API endpoints for the primary business operations. Each module includes: service class, API controller, Inertia controller, form requests, API resources, and tests.
+Build the domain logic and API endpoints for the primary business operations. Each module includes: service class, API controller, form requests, API resources, and tests.
 
 ### 2.1 Shop & Branch Management
 
@@ -297,7 +313,7 @@ Build the domain logic and API endpoints for the primary business operations. Ea
   - Shop logo upload via `spatie/laravel-medialibrary` (`shop-logos` collection on S3)
   - Delete shop (cascade, owner-only)
   - Branch CRUD within a shop
-- **Endpoints (API + Inertia):**
+- **Endpoints:**
   - `GET/POST /shops`, `GET/PATCH/DELETE /shops/{shop}`
   - `GET/POST /shops/{shop}/branches`, `GET/PATCH/DELETE /shops/{shop}/branches/{branch}`
   - `GET /shops/{shop}/settings`, `PATCH /shops/{shop}/settings`
@@ -393,6 +409,7 @@ Build the domain logic and API endpoints for the primary business operations. Ea
   - `GET/PATCH /shops/{shop}/purchase-orders/{po}`
   - `POST /shops/{shop}/purchase-orders/{po}/approve|receive|cancel`
 - **PO lifecycle** (state machine via `spatie/laravel-model-states`):
+
   ```
   draft → pending → approved → shipped → partial → received
                                     └→ cancelled
@@ -405,6 +422,7 @@ Build the domain logic and API endpoints for the primary business operations. Ea
     - `CancelPO` — validates cancellable state, fires `POCancelled` event
   - `$po->status->canTransitionTo(Approved::class)` — guards UI and API
   - Cancel allowed from any pre-received status
+
 - **Business rules:**
   - PO total = Σ(item.qty × item.unitCost)
   - Partial receive when receivedQty < orderedQty for any item
@@ -849,58 +867,102 @@ All prefixed with `/api/v1/admin/`. Protected by admin guard + admin permission 
 
 ---
 
-## Phase 12 — Frontend Migration (Inertia + React)
+## Phase 12 — Frontend (Nuxt 3 + Vue 3)
 
-Adapt the existing React prototype to work with Inertia.js server-side data.
+Build the standalone Nuxt 3 web application that consumes the Laravel API over HTTP.
 
-### 12.1 Inertia Setup
+### 12.1 Application Foundation
 
-- Replace `NavigationContext` with Inertia's `router.visit()` / `Link` component
-- Replace `AuthContext` state with Inertia shared data (`auth.user`, `auth.shop`, `auth.permissions`)
-- Replace `ShopContext` plan enforcement with server-side data (usage passed as props)
-- Replace demo data (`demoData.ts`, `constants/`) with Inertia page props from controllers
-- Keep `ThemeContext` (client-side only)
-- Keep `ToastContext` (client-side only, supplemented by Inertia flash messages)
+- **`app.vue`** — root component with `<NuxtLayout>` and `<NuxtPage>`
+- **`nuxt.config.ts`** — runtime config (API base URL, OAuth2 client ID, Reverb host), modules (`@nuxt/ui`, `@pinia/nuxt`, `@vueuse/nuxt`), TypeScript strict mode
+- **Plugins:**
+  - `plugins/api.ts` — `$fetch` wrapper with base URL from runtime config, automatic access token injection via `Authorization` header, 401 interceptor triggers token refresh
+  - `plugins/echo.ts` — Laravel Echo + Pusher client configured for Reverb WebSocket server
+- **Route middleware:**
+  - `middleware/auth.ts` — redirects unauthenticated users to `/login`
+  - `middleware/guest.ts` — redirects authenticated users to `/dashboard`
+  - `middleware/shop.ts` — ensures a shop is selected; redirects to `/shops` if not
+  - `middleware/permission.ts` — checks user's role permissions for the target page
+- **Pinia stores:**
+  - `stores/auth.ts` — user, tokens, login/logout, OAuth2 PKCE flow, token refresh
+  - `stores/shop.ts` — active shop, branches, plan usage, `canAdd()`, `showLimitBlock()`
+  - `stores/notification.ts` — notifications, unread count, mark-as-read
+  - `stores/kitchen.ts` — tills, kitchen orders, held orders, payments (replaces `KitchenOrderContext`)
+- **Composables:**
+  - `composables/useBreakpoint.ts` — reactive breakpoint detection (sm/md/lg/xl/xl2)
+  - `composables/useDebounce.ts` — debounced ref
+  - `composables/usePagination.ts` — pagination state and helpers
+  - `composables/useLocalStorage.ts` — reactive localStorage binding
 
-### 12.2 Page Migration Priority
+### 12.2 Page Development Priority
 
 Migrate pages in dependency order, matching the backend phase they depend on:
 
-| Priority | Pages                                                  | Backend Phase          |
-| -------- | ------------------------------------------------------ | ---------------------- |
-| 1        | Login, Register, Verify, Forgot, Reset                 | Phase 1 (Auth)         |
-| 2        | ShopSelect, CreateShopWizard                           | Phase 2.1 (Shops)      |
-| 3        | Dashboard                                              | Phase 11.2 (Reporting) |
-| 4        | Products, Categories, Units, AddProduct, ProductDetail | Phase 2.2–2.3          |
-| 5        | POS, Sales, SalesAnalysis                              | Phase 3                |
-| 6        | Inventory (Adjustments, Transfers, ReceiveOrders)      | Phase 2.4              |
-| 7        | Suppliers, SupplierDetail                              | Phase 2.5              |
-| 8        | PurchaseOrders, PODetail                               | Phase 2.5              |
-| 9        | Warehouses, WarehouseDetail                            | Phase 2.6              |
-| 10       | Customers                                              | Phase 5                |
-| 11       | Team, RolePermissions                                  | Phase 6                |
-| 12       | BarPOS, KitchenDisplay, TillManagement                 | Phase 4                |
-| 13       | Settings, Account                                      | Phase 10               |
-| 14       | Notifications                                          | Phase 7                |
-| 15       | Admin Portal (all tabs)                                | Phase 9                |
-| 16       | SaleVerification (public)                              | Phase 3.3              |
+| Priority | Pages                                                  | Nuxt Route Path                                                       | Backend Phase          |
+| -------- | ------------------------------------------------------ | --------------------------------------------------------------------- | ---------------------- |
+| 1        | Login, Register, Verify, Forgot, Reset                 | `pages/login.vue`, `pages/register.vue`, etc.                         | Phase 1 (Auth)         |
+| 2        | ShopSelect, CreateShopWizard                           | `pages/shops/index.vue`, `pages/shops/create.vue`                     | Phase 2.1 (Shops)      |
+| 3        | Dashboard                                              | `pages/dashboard.vue`                                                 | Phase 11.2 (Reporting) |
+| 4        | Products, Categories, Units, AddProduct, ProductDetail | `pages/products/index.vue`, `pages/products/[id].vue`, etc.           | Phase 2.2–2.3          |
+| 5        | POS, Sales, SalesAnalysis                              | `pages/pos.vue`, `pages/sales/index.vue`, etc.                        | Phase 3                |
+| 6        | Inventory (Adjustments, Transfers, ReceiveOrders)      | `pages/inventory/adjustments.vue`, etc.                               | Phase 2.4              |
+| 7        | Suppliers, SupplierDetail                              | `pages/suppliers/index.vue`, `pages/suppliers/[id].vue`               | Phase 2.5              |
+| 8        | PurchaseOrders, PODetail                               | `pages/purchase-orders/index.vue`, `pages/purchase-orders/[id].vue`   | Phase 2.5              |
+| 9        | Warehouses, WarehouseDetail                            | `pages/warehouses/index.vue`, `pages/warehouses/[id].vue`             | Phase 2.6              |
+| 10       | Customers                                              | `pages/customers/index.vue`                                           | Phase 5                |
+| 11       | Team, RolePermissions                                  | `pages/team/index.vue`, `pages/team/roles.vue`                        | Phase 6                |
+| 12       | BarPOS, KitchenDisplay, TillManagement                 | `pages/bar-pos.vue`, `pages/kitchen.vue`, `pages/till-management.vue` | Phase 4                |
+| 13       | Settings, Account                                      | `pages/settings.vue`, `pages/account.vue`                             | Phase 10               |
+| 14       | Notifications                                          | `pages/notifications.vue`                                             | Phase 7                |
+| 15       | Admin Portal (all tabs)                                | `pages/admin/index.vue` (tab-based)                                   | Phase 9                |
+| 16       | SaleVerification (public)                              | `pages/verify/[token].vue`                                            | Phase 3.3              |
 
-### 12.3 Component Reuse Strategy
+### 12.3 Context-to-Store Migration Map
 
-- **Keep as-is:** UI primitives (`components/ui/`), layout components, modals, theme system
-- **Adapt:** Page components (replace context data with Inertia props)
-- **Replace:** Navigation (Inertia router), auth state (Inertia shared data), data fetching (server-side props)
-- **Add:** Inertia form helpers (`useForm`), flash message integration, progress indicators
+| React Context         | Nuxt Replacement                        | Notes                                             |
+| --------------------- | --------------------------------------- | ------------------------------------------------- |
+| `ThemeContext`        | Nuxt color mode (`@nuxtjs/color-mode`)  | Theme persistence via cookie; Nuxt UI integration |
+| `AuthContext`         | `stores/auth.ts` (Pinia)                | OAuth2 PKCE tokens; user/permissions from API     |
+| `NavigationContext`   | Nuxt file-based routing (`useRouter()`) | URL-based navigation; no `PageId` string union    |
+| `NotificationContext` | `stores/notification.ts` (Pinia)        | API-backed; real-time via Echo                    |
+| `ShopContext`         | `stores/shop.ts` (Pinia)                | Plan usage computed server-side                   |
+| `ToastContext`        | Nuxt UI `useToast()`                    | Built-in toast system with same type variants     |
+| `KitchenOrderContext` | `stores/kitchen.ts` (Pinia)             | All till/order/kitchen state in one store         |
+| `AppProviders`        | Nuxt plugins + Pinia stores             | No nested provider tree; auto-imported            |
 
-### 12.4 TypeScript Types (via `spatie/laravel-typescript-transformer`)
+### 12.4 Component Migration Strategy
+
+- **Vue SFCs (`.vue`):** All components as Single-File Components with `<script setup lang="ts">`, `<template>`, and `<style scoped>`
+- **Nuxt UI components:** Replace custom `components/ui/` primitives (Button, Input, Badge, Card, Modal, Select, etc.) with Nuxt UI equivalents (`UButton`, `UInput`, `UBadge`, `UCard`, `UModal`, `USelect`, etc.)
+- **Icons:** `lucide-vue-next` (drop-in replacement for `lucide-react`)
+- **Conditional classes:** Vue's built-in `:class` binding replaces `clsx` — e.g., `:class="{ 'bg-primary': isActive, 'opacity-50': disabled }"`
+- **Forms:** Nuxt UI form components with Zod validation schemas; replaces hand-written inline validation
+- **Layouts:**
+  - `layouts/default.vue` — main layout with sidebar, header, mobile nav (replaces `MainLayout.tsx`)
+  - `layouts/auth.vue` — auth pages layout (login, register, etc.)
+  - `layouts/admin.vue` — admin portal layout
+- **Error handling:**
+  - `error.vue` — global error page (replaces `ErrorBoundary`)
+  - `app.vue` `onErrorCaptured` hook for logging
+  - API plugin interceptor for HTTP error handling
+
+### 12.5 TypeScript Types (via OpenAPI spec)
 
 - Shared types between frontend and backend:
-  - All `spatie/laravel-data` Data classes annotated with `#[TypeScript]` attribute
-  - Run `php artisan typescript:transform` to auto-generate `.d.ts` files matching PHP Data class shapes
-  - Eliminates manual type drift between API responses and React TypeScript frontend
-  - Keep existing `src/types/` as reference, update to match generated types
-  - Add Inertia-specific types (`PageProps`, shared data types)
-  - Add to CI pipeline: `typescript:transform --dry-run` to catch type drift
+  - `dedoc/scramble` auto-generates OpenAPI 3.1 spec from API routes, Data classes, and Form Requests
+  - `openapi-typescript` generates TypeScript type definitions from the OpenAPI spec
+  - Pipeline: `php artisan scramble:export` → `openapi-typescript api.json -o types/api.d.ts`
+  - Eliminates manual type drift between API responses and Vue TypeScript frontend
+  - Add to CI pipeline: spec generation + type generation + `nuxi typecheck` to catch drift
+
+### 12.6 Data Fetching Patterns
+
+- **Server-side / initial load:** `useAsyncData` + `$fetch` for page-level data fetching with SSR support
+- **Client-side mutations:** `$fetch` directly for POST/PATCH/DELETE operations with optimistic updates
+- **Error handling:** API plugin interceptor catches 401 (refresh token), 403 (redirect or toast), 422 (validation errors), 5xx (error page)
+- **Pagination:** `usePagination` composable wraps cursor/offset pagination from API
+- **Caching:** Nuxt's built-in `useAsyncData` caching with key-based invalidation via `refreshNuxtData()`
+- **Real-time updates:** Laravel Echo channel subscriptions in page `onMounted` hooks, updating Pinia stores on events
 
 ---
 
@@ -939,27 +1001,31 @@ Migrate pages in dependency order, matching the backend phase they depend on:
   - MinIO (S3-compatible, local development)
   - Mailpit (email testing)
   - Laravel Reverb (WebSocket server)
+  - Node.js 20 (Nuxt 3 dev server)
 - Laravel Sail or custom docker-compose.yml
 
 ### 14.2 Testing Strategy
 
-- **Unit tests:** Service classes, value objects, enums
-- **Feature tests:** API endpoints (full request/response cycle)
-- **Integration tests:** Multi-step workflows (PO → receive → stock update)
-- **Browser tests:** Critical Inertia flows (Laravel Dusk)
+- **Unit tests (backend):** Service classes, value objects, enums
+- **Feature tests (backend):** API endpoints (full request/response cycle)
+- **Integration tests (backend):** Multi-step workflows (PO → receive → stock update)
+- **Unit tests (frontend):** Vitest + `@vue/test-utils` for Vue component and composable tests
+- **E2E tests:** Playwright for critical user flows (replaces Laravel Dusk — runs against Nuxt app + API)
 - **Test factories:** All 52 models with realistic fake data
 - **CI pipeline:**
   - PHPStan static analysis
-  - Pest test suite
-  - Pint code style
-  - TypeScript typecheck
-  - `php artisan typescript:transform --dry-run` (catch type drift)
-  - Vite build
+  - Pest test suite (backend)
+  - Pint code style (backend)
+  - `nuxi typecheck` (frontend TypeScript verification)
+  - `php artisan scramble:export` + `openapi-typescript` (catch API/frontend type drift)
+  - `nuxi build` (frontend build verification)
+  - Vitest (frontend unit tests)
+  - Playwright (E2E tests)
 
 ### 14.3 Deployment
 
 - **API app:** Containerized (Docker), deployed to cloud VPS or managed platform
-- **Web app:** Containerized, asset build via Vite, deployed alongside or separately
+- **Web app:** Nuxt 3 deployed as Node.js SSR server (containerized) or pre-rendered static site (CDN)
 - **Database:** Managed PostgreSQL (e.g., Supabase, AWS RDS, DigitalOcean)
 - **Cache/Queue:** Managed Redis (e.g., Upstash, AWS ElastiCache)
 - **Storage:** S3 or compatible (DigitalOcean Spaces, Cloudflare R2)
@@ -970,12 +1036,12 @@ Migrate pages in dependency order, matching the backend phase they depend on:
 
 ### 14.4 Security Checklist
 
-- [ ] CORS configuration (API app)
+- [ ] CORS configuration (API app — restrict to web app origin, no wildcards in production)
 - [ ] Rate limiting on all endpoints
 - [ ] Input validation via Form Requests on every endpoint
 - [ ] SQL injection prevention (Eloquent parameterized queries)
-- [ ] XSS prevention (Inertia auto-escapes, API returns JSON)
-- [ ] CSRF protection (web app, Inertia handles automatically)
+- [ ] XSS prevention (Vue auto-escapes templates, API returns JSON; avoid `v-html` with user content)
+- [ ] Token storage security (access token in memory, refresh token in httpOnly cookie via API proxy)
 - [ ] File upload validation (type, size, malware scanning)
 - [ ] Sensitive data encryption at rest (payment tokens, 2FA secrets)
 - [ ] Audit logging for all sensitive operations
@@ -1031,8 +1097,8 @@ Phase 10: Settings ──── depends on Phase 1 ─────────�
                                                      │
 Phase 11: Exports ──── depends on Phase 2-3 ────────┤
                                                      │
-Phase 12: Frontend Migration ──── progressive ───────┤
-  (pages migrated as their backend phase completes)  │
+Phase 12: Frontend (Nuxt 3 + Vue 3) ── progressive ──┤
+  (pages built as their backend phase completes)     │
                                                      │
 Phase 13: Mobile API ──── inherits from Phase 2-9 ──┤
   (API endpoints built alongside each phase)         │
@@ -1043,7 +1109,7 @@ Phase 14: Infrastructure ──── Phase 1 + ongoing ─────┘
 **Parallelizable work streams:**
 
 - Phases 6, 7, 8, 10 can all start after Phase 1 is complete
-- Phase 12 (frontend) progresses incrementally as each backend phase completes
+- Phase 12 (Nuxt frontend) progresses incrementally as each backend phase completes
 - Phase 13 (mobile API) is built alongside each phase (not a separate effort)
 - Phase 14 (infra) starts at Phase 1 and evolves throughout
 
@@ -1051,35 +1117,38 @@ Phase 14: Infrastructure ──── Phase 1 + ongoing ─────┘
 
 ## Key Technical Risks
 
-| Risk                              | Mitigation                                                                                 |
-| --------------------------------- | ------------------------------------------------------------------------------------------ |
-| RLS + Eloquent complexity         | Test tenant isolation thoroughly; global scopes as safety net alongside RLS                |
-| Stock integrity under concurrency | Database-level locks (`SELECT FOR UPDATE`) on stock mutation; queue serialization per shop |
-| Split payment validation          | Database transaction wrapping entire sale; all-or-nothing commit                           |
-| Batch FEFO under concurrent sales | Lock product batches during sale processing; queue POS operations per branch               |
-| Offline mobile sync conflicts     | Last-write-wins with server timestamp; conflict log for manual resolution                  |
-| Plan enforcement race conditions  | Redis atomic counters for usage; check-and-increment in single operation                   |
-| Large export files                | Queue-based generation; S3 streaming; signed URL expiry                                    |
-| Kitchen real-time reliability     | Reverb with automatic reconnect; fallback polling; optimistic UI updates                   |
+| Risk                              | Mitigation                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------------- |
+| RLS + Eloquent complexity         | Test tenant isolation thoroughly; global scopes as safety net alongside RLS                 |
+| Stock integrity under concurrency | Database-level locks (`SELECT FOR UPDATE`) on stock mutation; queue serialization per shop  |
+| Split payment validation          | Database transaction wrapping entire sale; all-or-nothing commit                            |
+| Batch FEFO under concurrent sales | Lock product batches during sale processing; queue POS operations per branch                |
+| Offline mobile sync conflicts     | Last-write-wins with server timestamp; conflict log for manual resolution                   |
+| Plan enforcement race conditions  | Redis atomic counters for usage; check-and-increment in single operation                    |
+| Large export files                | Queue-based generation; S3 streaming; signed URL expiry                                     |
+| CORS misconfiguration             | Strict origin allowlist; no wildcards in production; test preflight requests in CI          |
+| OAuth2 token security in SPA      | Access token in memory only (not localStorage); refresh via httpOnly cookie proxy endpoint  |
+| SSR data fetching complexity      | Use `useAsyncData` with proper key management; avoid waterfall fetches; test SSR mode in CI |
+| Kitchen real-time reliability     | Reverb with automatic reconnect; fallback polling; optimistic UI updates                    |
 
 ---
 
 ## Appendix: Endpoint Count Summary
 
-| Module                                 | Endpoints |
-| -------------------------------------- | --------- |
-| Authentication                         | 9         |
-| Account & Profile                      | 6         |
-| Shops & Branches                       | 10        |
-| Products, Batches & Price History      | 14        |
-| Categories & Units                     | 8         |
-| Sales & POS (incl. POS Held Orders)   | 16        |
-| Purchase Orders                        | 7         |
-| Inventory (adjustments, transfers, goods receipts) | 12 |
-| Suppliers, Customers, Warehouses, Team | 14        |
-| Bar/Kitchen (orders, bar held orders)  | 8         |
-| Notifications & Preferences            | 9         |
-| Billing, Subscriptions & Exemptions    | 10        |
-| Admin (all groups incl. investors, forensics) | ~50 |
-| Mobile-specific                        | 4         |
-| **Total**                              | **~177**  |
+| Module                                             | Endpoints |
+| -------------------------------------------------- | --------- |
+| Authentication                                     | 9         |
+| Account & Profile                                  | 6         |
+| Shops & Branches                                   | 10        |
+| Products, Batches & Price History                  | 14        |
+| Categories & Units                                 | 8         |
+| Sales & POS (incl. POS Held Orders)                | 16        |
+| Purchase Orders                                    | 7         |
+| Inventory (adjustments, transfers, goods receipts) | 12        |
+| Suppliers, Customers, Warehouses, Team             | 14        |
+| Bar/Kitchen (orders, bar held orders)              | 8         |
+| Notifications & Preferences                        | 9         |
+| Billing, Subscriptions & Exemptions                | 10        |
+| Admin (all groups incl. investors, forensics)      | ~50       |
+| Mobile-specific                                    | 4         |
+| **Total**                                          | **~177**  |

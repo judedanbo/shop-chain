@@ -1,7 +1,7 @@
 # ShopChain Functional Specification Document
 
-**Version:** 1.1
-**Date:** 2026-02-27
+**Version:** 1.2
+**Date:** 2026-02-28
 **Status:** Draft
 **Audience:** Developers, QA, Product
 
@@ -63,7 +63,7 @@
 - Default tax rate: **Inconsistent across the codebase (known gap).**
   - POS register: hardcoded at **12.5%**, labeled "NHIL/VAT (12.5%)" on receipts. This does not correspond to a standard Ghana tax composite.
   - Shop creation wizard and Shop Settings: both default the configurable `taxRate` field to **15%** (matching Ghana's standard VAT rate).
-  - The POS does not yet read from the shop's `taxRate` setting — a `// TODO` comment in `POSPage.tsx` notes this should be wired up.
+  - The POS does not yet read from the shop's `taxRate` setting — this should be wired up to fetch the shop's configured tax rate via the API.
   - Admin Finances uses separate Ghana corporate tax rates (`GH_TAX`): Corporate 25%, NHIL 2.5%, GETFund 2.5%, COVID levy 1%, VAT 15%. These apply to ShopChain's own financials, not to shop-level sales tax.
 - Locale: Ghana (16 regions for address selection: Greater Accra, Ashanti, Western, Eastern, Central, Northern, Volta, Bono, Upper East, Upper West, Ahafo, Bono East, North East, Oti, Savannah, Western North).
 - Phone validation: regex pattern `^[\d\s+()-]{7,20}$` — accepts 7-20 characters of digits, spaces, `+`, `()`, and `-`. The validator does **not** enforce a `+233` country prefix; that prefix appears only in demo seed data.
@@ -72,76 +72,118 @@
 
 ## 2. Tech Stack & Architecture
 
-### 2.1 Current Stack
+### 2.1 Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Framework | React ^19.2.4 + TypeScript ^5.9.3 |
-| Build | Vite ^7.3.1 (with `@vitejs/plugin-react` for Babel-based JSX transforms) |
-| Deployment | Cloudflare Pages (static SPA) |
-| Icons | lucide-react ^0.563.0 |
-| Routing | Custom hash-based (`/#/verify/:token` for public pages) + in-memory `PageId` router for internal navigation |
-| State | React Context API + `useState` |
-| Styling | Tailwind CSS v4 utility classes (`tailwindcss ^4.2.1`, `@tailwindcss/vite ^4.2.1`) + CSS variable bridge; residual inline `style` for dynamic/computed values |
-| Conditional Classes | `clsx ^2.1.1` for composing conditional class strings |
-| Validation | Hand-written validator functions (no Zod/Yup) |
-
-> **Note:** All dependency versions in `package.json` use caret (`^`) ranges, so the exact installed versions may be higher than those listed above.
+| Framework | Nuxt 3 + Vue 3 + TypeScript |
+| Build | Nuxt (Vite-based, built-in) |
+| Icons | lucide-vue-next |
+| Routing | Nuxt file-based routing (`pages/` directory) |
+| State | Pinia stores |
+| Styling | Tailwind CSS + Nuxt UI component library (Radix Vue-based) |
+| Conditional Classes | Vue built-in `:class` binding (object/array syntax) |
+| Validation | Zod schemas with Nuxt UI form integration |
+| Real-time | laravel-echo + pusher-js (Reverb WebSocket client) |
 
 ### 2.2 Architecture Patterns
 
-- **Lazy loading**: All pages use `React.lazy()` + `Suspense` with a `PageLoader` fallback.
-- **Context composition**: 5 providers nested in `AppProviders` (`Theme > Toast > Auth > Navigation > Notification`). `ShopContext` is **not** part of `AppProviders` — it is inserted by `App.tsx` inside the auth gate, since it depends on the authenticated shop/plan state. `KitchenOrderContext` is also inserted by `App.tsx` inside the auth gate, wrapping the bar/restaurant POS subsystem.
-- **Navigation**: `PageId` string union drives which component `App.tsx` renders. No URL changes for internal pages.
-- **Path aliases**: `@/` resolves to `src/`. Sub-path aliases also defined for `@/components/*`, `@/hooks/*`, `@/utils/*`, `@/types/*`, `@/constants/*`, `@/context/*`, `@/pages/*`.
-- **Build chunks**: `vendor-react` (react + react-dom), `vendor-icons` (lucide-react).
-- **TypeScript strict mode**: `tsconfig.json` enables an aggressive strict configuration beyond the default `strict: true` — including `noUncheckedIndexedAccess`, `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`, and `noFallthroughCasesInSwitch`. Developers must handle all indexed access as potentially `undefined`, cannot leave unused variables/parameters, and must return from all code paths.
+- **Code splitting**: Nuxt auto-splits by route; each `pages/*.vue` file becomes a lazy-loaded chunk automatically.
+- **State management**: Pinia stores for shared state (`auth`, `shop`, `notification`, `kitchen`). Composables for reusable reactive logic.
+- **Routing**: Nuxt file-based routing — `pages/` directory structure defines routes automatically. Dynamic segments use `[param]` syntax (e.g., `pages/products/[id].vue`).
+- **Path aliases**: `~/` resolves to the project root. Nuxt auto-imports components, composables, and utilities — no manual import statements required.
+- **Build optimization**: Nuxt handles chunk splitting, tree-shaking, and asset optimization automatically via its Vite-based build pipeline.
+- **TypeScript strict mode**: `nuxt.config.ts` enables strict TypeScript via `typescript.strict: true`. Combined with `nuxi typecheck` in CI for compile-time verification.
 
 ### 2.3 Project Structure
 
 ```
-src/
-├── index.tsx              # Entry: hash-router for verify vs main app
-├── App.tsx                # Root: page router switch, data state holder
-├── styles/globals.css     # Global resets, Tailwind @theme bridge, animations
-├── types/                 # TypeScript interfaces (14 files, incl. kitchen.types.ts)
-├── constants/             # demoData, plans, themes, breakpoints,
-│                            adminData, adminFinances, adminInvestors, adminAuditData,
-│                            adminThemes, zIndex
-├── context/               # ThemeContext, AuthContext, ToastContext,
-│                            NavigationContext, NotificationContext, ShopContext,
-│                            KitchenOrderContext, AppProviders (composition root)
-├── hooks/                 # useBreakpoint, useDebounce, usePagination, useLocalStorage
-├── utils/                 # formatters, batchUtils, planUsage, validators,
-│                            verifyStore, pagination, responsive, typeGuards
-├── components/
-│   ├── ui/                # Button, Input, Badge, Card, etc.
-│   ├── layout/            # MainLayout, Sidebar, Header, MobileNav
+apps/web/                  # Nuxt 3 application root
+├── app.vue                # Root component (<NuxtLayout> + <NuxtPage>)
+├── nuxt.config.ts         # Nuxt configuration (modules, runtime config, TypeScript)
+├── error.vue              # Global error page (replaces ErrorBoundary)
+├── assets/
+│   └── css/main.css       # Global resets, Tailwind @theme bridge, animations
+├── types/                 # TypeScript interfaces (auto-generated from OpenAPI + manual)
+│   └── api.d.ts           # Generated from OpenAPI spec via openapi-typescript
+├── stores/                # Pinia stores
+│   ├── auth.ts            # User, tokens, OAuth2 PKCE, login/logout
+│   ├── shop.ts            # Active shop, branches, plan usage, canAdd()
+│   ├── notification.ts    # Notifications, unread count, mark-as-read
+│   └── kitchen.ts         # Tills, kitchen orders, held orders, payments
+├── composables/           # Reusable reactive logic
+│   ├── useBreakpoint.ts   # Reactive breakpoint detection
+│   ├── useDebounce.ts     # Debounced ref
+│   ├── usePagination.ts   # Pagination state and helpers
+│   └── useLocalStorage.ts # Reactive localStorage binding
+├── utils/                 # Pure utility functions
+│   ├── formatters.ts      # Currency, date, number formatters
+│   ├── batchUtils.ts      # Batch/lot helper functions
+│   ├── planUsage.ts       # Plan usage computation
+│   ├── validators.ts      # Zod schemas for form validation
+│   └── responsive.ts      # Breakpoint helper functions
+├── plugins/               # Nuxt plugins (auto-registered)
+│   ├── api.ts             # $fetch wrapper with auth token injection
+│   └── echo.ts            # Laravel Echo + Pusher client for Reverb
+├── middleware/             # Route middleware
+│   ├── auth.ts            # Redirect unauthenticated → /login
+│   ├── guest.ts           # Redirect authenticated → /dashboard
+│   ├── shop.ts            # Ensure shop selected → /shops
+│   └── permission.ts      # Check role permissions for target page
+├── layouts/               # Nuxt layouts
+│   ├── default.vue        # Main layout (sidebar, header, mobile nav)
+│   ├── auth.vue           # Auth pages layout (login, register, etc.)
+│   └── admin.vue          # Admin portal layout
+├── components/            # Auto-imported Vue components
+│   ├── layout/            # Sidebar, Header, MobileNav
 │   ├── modals/            # PurchaseOrderModal, ConfirmModal, etc.
 │   └── features/          # PlanUsageBanner, RoleSwitcher, ThemePicker
-└── pages/
-    ├── auth/              # Login, Register, Verify, Forgot, Reset
-    ├── onboarding/        # ShopSelect, CreateShopWizard
-    ├── dashboard/         # DashboardPage
-    ├── products/          # ProductsPage, AddProductPage, ProductDetailPage,
-    │                        CategoriesPage, UnitsPage
-    ├── inventory/         # ReceiveOrdersPage, AdjustmentsPage, TransfersPage
-    ├── pos/               # POSPage
-    ├── barPos/            # BarPOSPage, ProductCatalog, OrderPanel, TillOrdersDrawer
-    ├── kitchen/           # KitchenDisplayPage
-    ├── tillManagement/    # TillManagementPage, TillListPanel, TillDetailPanel,
-    │                        TillAddOrderForm, TillOrderCard, TillPaymentPanel,
-    │                        TillReceiptPreview
-    ├── sales/             # SalesPage, SalesAnalysisPage
-    ├── purchaseOrders/    # PurchaseOrdersPage, PODetailPage
-    ├── suppliers/         # SuppliersPage, SupplierDetailPage
-    ├── customers/         # CustomersPage
-    ├── warehouse/         # WarehousesPage, WarehouseDetailPage
-    ├── team/              # TeamPage, RolePermissionsPage
-    ├── settings/          # ShopSettingsPage, AccountPage
-    ├── notifications/     # NotificationsPage
-    ├── verify/            # SaleVerificationPage (public, no auth)
-    └── admin/             # SuperAdminDashboard + sub-tab components
+└── pages/                 # File-based routing
+    ├── login.vue           # Login
+    ├── register.vue        # Register
+    ├── forgot-password.vue # Forgot password
+    ├── reset-password.vue  # Reset password
+    ├── verify/[token].vue  # Email verification (public)
+    ├── shops/
+    │   ├── index.vue       # Shop selection
+    │   └── create.vue      # Create shop wizard
+    ├── dashboard.vue       # Dashboard
+    ├── products/
+    │   ├── index.vue       # Product list
+    │   ├── [id].vue        # Product detail
+    │   ├── add.vue         # Add product
+    │   ├── categories.vue  # Categories management
+    │   └── units.vue       # Units of measure
+    ├── inventory/
+    │   ├── adjustments.vue # Stock adjustments
+    │   ├── transfers.vue   # Stock transfers
+    │   └── receive.vue     # Receive orders
+    ├── pos.vue             # POS register
+    ├── bar-pos.vue         # Bar POS
+    ├── kitchen.vue         # Kitchen display
+    ├── till-management.vue # Till management
+    ├── sales/
+    │   ├── index.vue       # Sales history
+    │   └── analysis.vue    # Sales analysis
+    ├── purchase-orders/
+    │   ├── index.vue       # PO list
+    │   └── [id].vue        # PO detail
+    ├── suppliers/
+    │   ├── index.vue       # Supplier list
+    │   └── [id].vue        # Supplier detail
+    ├── customers/
+    │   └── index.vue       # Customer list
+    ├── warehouses/
+    │   ├── index.vue       # Warehouse list
+    │   └── [id].vue        # Warehouse detail
+    ├── team/
+    │   ├── index.vue       # Team members
+    │   └── roles.vue       # Role permissions
+    ├── settings.vue        # Shop settings
+    ├── account.vue         # User account
+    ├── notifications.vue   # Notifications
+    └── admin/
+        └── index.vue       # Admin portal (tab-based)
 ```
 
 ---
@@ -360,7 +402,7 @@ Shop (1) ─────── (N) Branch
 | `momoRef` | `string` | MoMo only | Transaction reference |
 | `splits` | `SaleSplit[]` | Split only | Payment method breakdown |
 | `verifyToken` | `string` | No | 12-char cryptographic token for receipt verification. Optional in the type (`verifyToken?: string`), but generated for every sale in practice. |
-| `source` | `'pos' \| 'bar'` | No | Distinguishes retail POS sales (`'pos'`) from bar/restaurant till-close sales (`'bar'`). Bar sales are created by `closeTill()` in `KitchenOrderContext`. |
+| `source` | `'pos' \| 'bar'` | No | Distinguishes retail POS sales (`'pos'`) from bar/restaurant till-close sales (`'bar'`). Bar sales are created by `closeTill()` in the kitchen Pinia store. |
 | `status` | `SaleStatus` | No | `completed`, `reversed`, or `pending_reversal`. Optional in the type (`status?: SaleStatus`), but set for every sale in practice. |
 | `reversedAt` | `string` | Reversal only | ISO timestamp |
 | `reversedBy` | `string` | Reversal only | Role that approved reversal |
@@ -437,7 +479,7 @@ Shop (1) ─────── (N) Branch
 | `target` | `NotificationTarget` | Yes | `{ type: NotificationTargetType, roles?: string[], userId?: string }` |
 | `read` | `boolean` | Yes | Read state |
 | `createdAt` | `string` | Auto | ISO timestamp |
-| `actionUrl` | `PageId` | No | Deep-link target page |
+| `actionUrl` | `string` | No | Route path for deep-link navigation (e.g., `/products/SKU-001`) |
 | `actionData` | `Record<string, string>` | No | Arbitrary key-value data passed to the action target |
 | `actor` | `string` | No | Name of the user/system that triggered the notification |
 | `actorRole` | `string` | No | Role of the triggering user |
@@ -552,7 +594,7 @@ Embedded within `SaleRecord.splits[]` (only when `paymentMethod === 'split'`):
 
 ### 3.23 KitchenOrder
 
-Defined in `src/types/kitchen.types.ts`. Represents an order sent from the Bar POS to the kitchen.
+Defined in `types/kitchen.types.ts`. Represents an order sent from the Bar POS to the kitchen.
 
 **KitchenOrderStatus:** `'pending' | 'accepted' | 'rejected' | 'completed' | 'served' | 'returned' | 'cancelled'`
 
@@ -652,11 +694,11 @@ Represents a bar/restaurant till session (open/close lifecycle).
 
 **TillPaymentMethod:** `'cash' | 'card' | 'momo'`
 
-### 3.28 KitchenOrderContext
+### 3.28 Kitchen Order Store
 
-`KitchenOrderContext` (`src/context/KitchenOrderContext.tsx`, ~875 lines) manages the entire bar/restaurant POS subsystem. It is **not** part of `AppProviders` — it is inserted by `App.tsx` inside the auth gate. Accepts an `onTillClose: (sale: SaleRecord) => void` callback to integrate till-close sales into the main sales history.
+The kitchen order Pinia store (`stores/kitchen.ts`) manages the entire bar/restaurant POS subsystem. It handles tills, kitchen orders, held orders, and till payments. It integrates till-close sales into the main sales history via the shop store.
 
-**Key operations exposed via `useKitchenOrders()`:**
+**Key operations exposed via `useKitchenStore()`:**
 
 | Category | Functions |
 |---|---|
@@ -795,7 +837,7 @@ If a user's role has `none` for the mapped permission, the nav item is hidden an
 - Who sees the "Upgrade Plan" button vs. "Contact your shop owner" message when limits are reached.
 - Who can directly reverse sales vs. request reversal.
 
-**Critical behavioral detail — `canAdd()` bypass:** The `canAdd(key)` function in `ShopContext` has this logic:
+**Critical behavioral detail — `canAdd()` bypass:** The `canAdd(key)` function in the shop Pinia store has this logic:
 
 ```
 if (!isDecisionMaker) return true;   // <-- non-decision-makers are NEVER blocked
@@ -878,7 +920,7 @@ Admin permissions are boolean (`true`/`false`), not the 4-level system used for 
 
 ### 5.3 Limit Enforcement Logic
 
-The `computePlanUsage()` function (`src/utils/planUsage.ts`) compares current usage against plan limits:
+The `computePlanUsage()` function (`utils/planUsage.ts`) compares current usage against plan limits:
 
 ```
 for each limit key:
@@ -929,13 +971,13 @@ Appears in the header when any resource is at `warning` or `blocked` level.
 
 ### 5.4 Trial Period
 
-`TRIAL_DAYS = 14` is defined in `src/constants/plans.ts`.
+`TRIAL_DAYS = 14` is defined in `utils/constants/plans.ts`.
 
-> **⚠ Placeholder only:** In the current implementation, `trialDaysLeft` is hardcoded to `useState(0)` in `ShopContext`. No logic reads `TRIAL_DAYS` to compute remaining trial days or enforce trial expiry. The default plan is `useState('basic')`, so the demo effectively starts on Basic with no trial countdown. A production implementation must add: trial start date tracking, countdown computation, expiry enforcement, and downgrade-to-Free on expiry.
+> **⚠ Placeholder only:** Trial days remaining must be computed server-side from the subscription's `trial_ends_at` timestamp and returned via the API. The shop Pinia store will expose this as a reactive computed property. A production implementation must add: trial start date tracking, countdown computation, expiry enforcement, and downgrade-to-Free on expiry.
 
 ### 5.5 Admin Plan Management
 
-The admin portal provides full plan CRUD and lifecycle management via `AdminSubscriptionsTab` (`src/pages/admin/AdminSubscriptionsTab.tsx`). This screen is accessible to admin roles with the `managePlans` permission (Super Admin, Admin, Billing Manager).
+The admin portal provides full plan CRUD and lifecycle management via the Admin Subscriptions tab (`pages/admin/index.vue`, subscriptions tab). This screen is accessible to admin roles with the `managePlans` permission (Super Admin, Admin, Billing Manager).
 
 #### 5.5.1 Subscriptions Sub-tabs
 
@@ -1051,7 +1093,7 @@ When lifecycle is set to `retiring`:
 
 > **Note:** `deletePlans` maps to the ability to permanently retire plans. Only Super Admin has this permission.
 
-> **Implementation note:** All plan management is local React state in the current demo (`useState<LocalPlan[]>`). A production build requires backend APIs for plan CRUD, lifecycle transitions, subscriber migration jobs, and exemption tracking.
+> **Implementation note:** All plan management is local Pinia state in the current demo. A production build requires backend APIs for plan CRUD, lifecycle transitions, subscriber migration jobs, and exemption tracking.
 
 ---
 
@@ -1059,7 +1101,7 @@ When lifecycle is set to `retiring`:
 
 ### 6.0 Shared Auth Layout
 
-All pre-auth screens (Login, Register, Verify, Forgot, Reset) are rendered inside an `AuthLayout` wrapper component (`src/pages/auth/AuthLayout.tsx`). This provides:
+All pre-auth screens (Login, Register, Verify, Forgot, Reset) use the Nuxt `auth` layout (`layouts/auth.vue`). This provides:
 - Centered card container with max width.
 - Background styling with ambient colour blobs.
 - Responsive sizing via breakpoint prop.
@@ -2646,7 +2688,7 @@ Thermal-style receipt (monospace font, max width constrained). Font specs: shop 
 
 **FEFO = First Expiry, First Out.** Batches with the nearest expiry date are consumed first.
 
-**Batch utility functions** (`src/utils/batchUtils.ts`):
+**Batch utility functions** (`utils/batchUtils.ts`):
 
 | Function | Purpose |
 |---|---|
@@ -2701,7 +2743,7 @@ input: {
 
 ### 9.2 Expiry Classification
 
-**Days calculation** (`getDaysUntilExpiry` in `src/utils/formatters.ts`):
+**Days calculation** (`getDaysUntilExpiry` in `utils/formatters.ts`):
 ```
 today.setHours(0, 0, 0, 0)
 expiry = new Date(expiryDate + 'T00:00:00')
@@ -2915,7 +2957,7 @@ Each notification is stored as an `AppNotification` with 15 fields:
 | `target` | `NotificationTarget` | Yes | `{ type, roles?, userId? }` — determines visibility |
 | `read` | `boolean` | Yes | Initially `false`, set by `markAsRead` |
 | `createdAt` | `string` | Yes | ISO 8601 timestamp, set on creation |
-| `actionUrl` | `PageId` | No | Page to navigate to when notification is clicked |
+| `actionUrl` | `string` | No | Route path to navigate to when notification is clicked |
 | `actionData` | `Record<string, string>` | No | Context data (e.g., `{ saleId: "TXN-..." }`) |
 | `actor` | `string` | No | Name of user who triggered the event |
 | `actorRole` | `string` | No | Role of triggering user |
@@ -3045,7 +3087,7 @@ Configurable per-user:
 | **Individual targeting** | Demo mode shows all `individual`-type notifications to every user. No `userId` filtering is implemented. |
 | **Channel delivery** | Only `in_app` channel is actually implemented. `push`, `email`, and `sms` channels are stored in preferences and notification objects but have no delivery mechanism. |
 | **`critical` priority** | Defined in the type system (`NotificationPriority`) but not used by any dispatch function. No special handling for critical-priority notifications. |
-| **Notification persistence** | All notifications are held in React state only. They reset on page refresh. |
+| **Notification persistence** | All notifications are held in Pinia store state only. They reset on page refresh. |
 
 ---
 
@@ -3064,7 +3106,7 @@ Configurable per-user:
 
 - **Sidebar** (220px desktop / 240px mobile overlay) — brand header ("ShopChain Admin Portal" with shield icon), 10 navigation items, theme toggle (Dark/Light pills), "Exit Admin" button.
 - **Header** (56px height) — page title, mobile hamburger menu toggle.
-- **Content area** — lazy-loaded tab components with `Suspense` and spinner fallback.
+- **Content area** — lazy-loaded tab components with loading spinner fallback.
 - **Admin theme system** — `ADMIN_THEMES` object with dark and light color maps (11 tokens each: `bg`, `surface`, `surfaceAlt`, `border`, `text`, `textMuted`, `primary`, `success`, `danger`, `adminAccent`, plus card/hover variants).
 - **Responsive**: Desktop shows permanent sidebar; mobile shows overlay sidebar with backdrop.
 
@@ -3392,7 +3434,7 @@ See §5.5 for full subscription plan details.
 |---|---|
 | **Permission enforcement** | Admin roles and permissions are defined but **not enforced** in the UI. All admin users see all 10 tabs and can perform all actions regardless of their assigned role. |
 | **Demo-only authentication** | Hardcoded credentials (`admin@shopchain.com` / `admin123`). 2FA is UI-only and accepts any input. No real password hashing, session management, or token-based auth. |
-| **No data persistence** | All admin data comes from mock constants (`ADMIN_DEMO_USERS`, `ADMIN_DEMO_SHOPS`, `MOCK_ADMIN_TEAM`, etc.). State changes (user status toggles, plan edits, announcements) are held in React state and reset on page refresh. |
+| **No data persistence** | All admin data comes from mock constants (`ADMIN_DEMO_USERS`, `ADMIN_DEMO_SHOPS`, `MOCK_ADMIN_TEAM`, etc.). State changes (user status toggles, plan edits, announcements) are held in Pinia store state and reset on page refresh. |
 | **No backend API** | No admin API endpoints exist. All operations are client-side simulations. |
 | **Expense attachments** | `ExpenseAttachment` interface exists in types but attachment upload/view is not implemented in the UI. |
 | **PDF/CSV export** | Export buttons exist in Audit Reports tab but no actual file generation is implemented. |
@@ -3660,7 +3702,7 @@ The current implementation is a client-side SPA with no backend. The following A
 
 ## 14. Form Validation Rules
 
-### 14.1 Validator Library (`src/utils/validators.ts`)
+### 14.1 Validator Library (`utils/validators.ts`)
 
 All validation functions return `null` for valid input or an error string for invalid. The `validate()` composer runs validators in order and returns the first non-null error.
 
@@ -3754,21 +3796,21 @@ All forms use **inline custom validation** (not the `validators.ts` utility). Th
 
 ## 15. Error Handling
 
-### 15.1 Global Error Boundary
+### 15.1 Global Error Handling
 
-`ErrorBoundary` (`src/components/ErrorBoundary.tsx`) is a class component. On unhandled React errors:
-- Renders a fallback UI:
-  - Heading: "Something went wrong" (24px, bold).
-  - Error message: `error?.message || 'An unexpected error occurred'` (14px, muted).
-  - Button: "Reload Page" → `window.location.reload()` (purple gradient `#6C5CE7`).
-- Logs to console: `console.error('ErrorBoundary caught:', error, errorInfo)` via `componentDidCatch`.
-- Uses **hardcoded dark theme** (`#0F1117` background, `#E8EAF0` text) — independent of `ThemeContext`.
+Nuxt provides a multi-layered error handling strategy:
 
-> **Known gap**: The `ErrorBoundary` component exists but is **not currently in use**. It is not imported or rendered in `App.tsx` or `AppProviders.tsx`, and is not exported from `components/index.ts`. It is dead code awaiting integration.
+- **`error.vue`** — global error page rendered for unhandled errors and `createError()` calls:
+  - Heading: "Something went wrong" (or HTTP status-specific message).
+  - Error message: `error.message || 'An unexpected error occurred'`.
+  - Button: "Go Home" → `clearError({ redirect: '/' })`.
+  - Receives error via `useError()` composable.
+- **`app.vue` `onErrorCaptured`** — Vue lifecycle hook for logging unhandled component errors to console or error reporting service.
+- **API plugin interceptor** — catches HTTP errors (401, 403, 422, 5xx) from API calls and handles them appropriately (token refresh, toast, validation display, or error page).
 
 ### 15.2 Toast Notifications
 
-All user-facing action feedback uses the toast system (`ToastContext`).
+All user-facing action feedback uses the Nuxt UI toast system (`useToast()` composable).
 
 **Toast types:**
 
@@ -3796,7 +3838,7 @@ All user-facing action feedback uses the toast system (`ToastContext`).
 
 ### 15.3 Inline Form Errors
 
-Implemented via the `AuthInput` component (`src/pages/auth/AuthHelpers.tsx`):
+Implemented via the Nuxt UI `UFormGroup` component with error slot, or custom `AuthInput` component:
 
 - **Error text**: displayed below the field at fontSize 11px in `danger` color.
 - **Error icon**: `AlertTriangle` (11px) accompanies the error text.
@@ -3806,7 +3848,7 @@ Implemented via the `AuthInput` component (`src/pages/auth/AuthHelpers.tsx`):
 
 ### 15.4 Empty States
 
-`EmptyState` component (`src/components/ui/EmptyState.tsx`) used on list pages when no data exists or no data matches current search/filter criteria.
+`EmptyState` component (`components/ui/EmptyState.vue`) used on list pages when no data exists or no data matches current search/filter criteria.
 
 **Props:**
 
@@ -3815,7 +3857,7 @@ Implemented via the `AuthInput` component (`src/pages/auth/AuthHelpers.tsx`):
 | `icon` | `LucideIcon` | Yes | Icon displayed in a 64×64px box with `surfaceAlt` background |
 | `title` | `string` | Yes | Main text (16px, bold) |
 | `description` | `string` | No | Subtitle (13px, muted, max-width 400px) |
-| `action` | `ReactNode` | No | Action button/element below description |
+| `action` | slot | No | Action button/element below description (Vue slot) |
 
 **Styling**: centered flex column, 60px 20px padding, icon in 16px borderRadius box at 28px size.
 
@@ -3823,25 +3865,25 @@ Implemented via the `AuthInput` component (`src/pages/auth/AuthHelpers.tsx`):
 
 Three loading implementations:
 
-**PageLoader** (defined in `App.tsx`):
+**PageLoader** (Nuxt built-in `<NuxtLoadingIndicator>` or custom loading component):
 - 32×32px circular spinner with 3px border.
 - Border top color: `colors.primary` (animated).
 - Animation: `spin 0.8s linear infinite`.
-- Used as `Suspense` fallback for lazy-loaded page components.
+- Used as loading indicator during page navigation (Nuxt handles lazy-loading automatically).
 - Centered with `minHeight: 200px`.
 
-**Skeleton** (`src/components/ui/Skeleton.tsx`):
+**Skeleton** (`components/ui/Skeleton.vue`):
 - Configurable props: `width` (default `'100%'`), `height` (default `20`), `borderRadius` (default `8`).
 - Background: `colors.surfaceAlt`.
 - Animation: `pulse 1.5s ease-in-out infinite`.
 - Used for loading table rows, product cards, etc.
 
-**Button loading** (`src/components/ui/Button.tsx`):
+**Button loading** (Nuxt UI `UButton` with `loading` prop):
 - When `loading={true}`: spinner replaces the icon, button becomes `disabled`, opacity drops to `0.5`, cursor `not-allowed`.
 - Spinner size: 14px for `sm` buttons, 16px for `md`/`lg`.
 - Animation: `spin 0.8s linear infinite`.
 
-**AuthButton loading** (`src/pages/auth/AuthHelpers.tsx`):
+**AuthButton loading** (auth page submit button):
 - Separate implementation: 18px white spinner (`rgba(255,255,255,0.3)` border, `#fff` top border).
 - Replaces button children entirely when loading.
 
@@ -3868,7 +3910,7 @@ Access control uses a **prevention-first** approach:
 ### 15.7 Plan Limit Reached
 
 When `canAdd()` returns `false`:
-- `LimitBlockedModal` (`src/components/modals/LimitBlockedModal.tsx`) appears as a modal overlay with:
+- `LimitBlockedModal` (`components/modals/LimitBlockedModal.vue`) appears as a modal overlay with:
   - **Lock icon** (22px, danger color) at the top.
   - **Title**: resource-specific (e.g., "Products Limit Reached").
   - **Description**: role-aware message — "Your {plan} plan allows a maximum" for decision makers; "The {plan} plan limit has been reached. Please contact the shop owner." for non-decision makers.
@@ -3883,7 +3925,7 @@ When `canAdd()` returns `false`:
 
 ### 16.1 Breakpoints
 
-Defined in `src/constants/breakpoints.ts`:
+Defined in `utils/constants/breakpoints.ts`:
 
 ```ts
 export const BREAKPOINTS = { sm: 0, md: 640, lg: 768, xl: 1024, xl2: 1440 } as const;
@@ -3899,11 +3941,11 @@ export const BREAKPOINT_ORDER: Breakpoint[] = ['sm', 'md', 'lg', 'xl', 'xl2'];
 | `xl` | 1024 | 1024–1439px | Laptops, desktops |
 | `xl2` | 1440 | 1440px+ | Large desktops |
 
-Resolution is performed by `getBreakpoint(width)` in `useBreakpoint.ts`: compares `window.innerWidth` against `BREAKPOINTS.md`, `.lg`, `.xl`, `.xl2` thresholds in ascending order.
+Resolution is performed by `getBreakpoint(width)` in `composables/useBreakpoint.ts`: compares `window.innerWidth` against `BREAKPOINTS.md`, `.lg`, `.xl`, `.xl2` thresholds in ascending order.
 
 ### 16.2 Breakpoint Helpers
 
-Defined in `src/utils/responsive.ts`:
+Defined in `utils/responsive.ts`:
 
 | Helper | Logic | Returns `true` for |
 |---|---|---|
@@ -3917,7 +3959,7 @@ Defined in `src/utils/responsive.ts`:
 
 ### 16.3 Layout Adaptations
 
-#### 16.3.1 Sidebar (`Sidebar.tsx`)
+#### 16.3.1 Sidebar (`components/layout/Sidebar.vue`)
 
 | Condition | Behavior |
 |---|---|
@@ -3925,9 +3967,9 @@ Defined in `src/utils/responsive.ts`:
 | Tablet / small desktop (md–xl) | Collapsed: 72px width, icons only, expand on hover/click via collapse toggle button |
 | Large desktop (xl2) | Expanded: 240px width, full labels |
 
-Collapse toggle button (chevron icon) toggles between 72px and 240px. State stored in component `useState`, not persisted.
+Collapse toggle button (chevron icon) toggles between 72px and 240px. State stored in component `ref()`, not persisted.
 
-#### 16.3.2 MobileNav (`MobileNav.tsx`)
+#### 16.3.2 MobileNav (`components/layout/MobileNav.vue`)
 
 | Property | Value |
 |---|---|
@@ -3937,7 +3979,7 @@ Collapse toggle button (chevron icon) toggles between 72px and 240px. State stor
 | Tabs | 5: Dashboard, POS, Products, Purchase Orders, More |
 | Active indicator | 4px dot below active icon |
 
-#### 16.3.3 Header (`Header.tsx`)
+#### 16.3.3 Header (`components/layout/Header.vue`)
 
 | Condition | Behavior |
 |---|---|
@@ -3954,7 +3996,7 @@ width: '100%', maxWidth: 420px
 
 Outer container has 16px horizontal padding. Not 96%/480-640px as previously documented.
 
-#### 16.3.5 POS Layout (`POSPage.tsx`)
+#### 16.3.5 POS Layout (`pages/pos.vue`)
 
 | Condition | Layout |
 |---|---|
@@ -4021,7 +4063,7 @@ function useBreakpoint(): Breakpoint
 | # | Gap | Detail |
 |---|---|---|
 | 1 | No resize debounce | `useBreakpoint` fires on every resize event; no `requestAnimationFrame` or debounce wrapper |
-| 2 | Sidebar collapse not persisted | Collapse/expand state is local `useState`; resets on page reload |
+| 2 | Sidebar collapse not persisted | Collapse/expand state is local `ref()`; resets on page reload |
 | 3 | MobileNav sm-only | Bottom nav only renders on `sm`; `md` users (640-767px) see neither MobileNav nor full sidebar |
 | 4 | `rv()` silent undefined | If `sm` key is not provided and walk-back finds nothing, returns `undefined` cast as `T` with no warning |
 
@@ -4031,7 +4073,7 @@ function useBreakpoint(): Breakpoint
 
 ### 17.1 Available Themes
 
-Defined in `src/constants/themes.ts`. Exported as `THEMES: Record<ThemeId, ThemeColors>`.
+Defined in `utils/constants/themes.ts`. Exported as `THEMES: Record<ThemeId, ThemeColors>`.
 
 | ID | Name | Dark? | Icon | Primary | Preview (3-color tuple) |
 |---|---|---|---|---|---|
@@ -4048,7 +4090,7 @@ Additional constants export: `THEME_IDS: ThemeId[]` — array of all 6 theme IDs
 
 ### 17.2 Type System
 
-Defined in `src/types/theme.types.ts`:
+Defined in `types/theme.types.ts`:
 
 ```ts
 type ThemeId = 'midnight' | 'light' | 'ocean' | 'forest' | 'sunset' | 'lavender';
@@ -4126,24 +4168,24 @@ Theme colors are bridged from JavaScript to CSS via **CSS custom properties**, e
 
 **How the bridge works:**
 
-1. `ThemeContext` calls `syncCssVars(colors)` on every theme change, which writes 22 `--sc-*` CSS custom properties to `document.documentElement.style` (e.g., `--sc-primary`, `--sc-surface`, `--sc-text`).
+1. The theme composable calls `syncCssVars(colors)` on every theme change, which writes 22 `--sc-*` CSS custom properties to `document.documentElement.style` (e.g., `--sc-primary`, `--sc-surface`, `--sc-text`).
 2. `globals.css` contains a `@theme` block that maps each `--sc-*` variable to a Tailwind `--color-*` token (e.g., `--color-primary: var(--sc-primary)`).
 3. This enables Tailwind semantic classes like `bg-surface`, `text-primary`, `border-border`, `text-text-muted`, `bg-danger-bg`, etc.
 
 **Pattern (primary — Tailwind classes):**
 
-```tsx
-<div className="bg-surface text-text border border-border rounded-lg p-4">…</div>
+```vue
+<div class="bg-surface text-text border border-border rounded-lg p-4">…</div>
 ```
 
 **Pattern (residual inline style — for dynamic/computed values only):**
 
-```tsx
-// Computed hex alpha, gradients, responsive helpers, dynamic conditionals
-<div style={{ background: `${COLORS.primary}15`, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>…</div>
+```vue
+<!-- Computed hex alpha, gradients, responsive helpers, dynamic conditionals -->
+<div :style="{ background: `${colors.primary}15`, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }">…</div>
 ```
 
-**`globals.css` (`src/styles/globals.css`) contains:**
+**`main.css` (`assets/css/main.css`) contains:**
 - Font import (DM Sans 400/500/600/700/800 from Google Fonts)
 - `@import 'tailwindcss'` — Tailwind CSS v4 entry point
 - `@theme` block with:
@@ -4155,60 +4197,58 @@ Theme colors are bridged from JavaScript to CSS via **CSS custom properties**, e
 - `@layer base` — global resets, scrollbar styling, number input spinner hide, focus-visible outline
 - Animation keyframes: `modalIn`, `slideIn`, `spin`, `pulse`, `kitchenPulse`, `fadeIn`
 
-### 17.5 ThemeContext & Hooks
+### 17.5 Theme Composables
 
-Defined in `src/context/ThemeContext.tsx`.
+Theme management uses the Nuxt color mode module (`@nuxtjs/color-mode`) integrated with Nuxt UI's theming system.
 
-#### Provider
+#### Configuration
 
-```tsx
-<ThemeProvider defaultTheme?: ThemeId>
-  {children}
-</ThemeProvider>
+Theme configuration is set in `nuxt.config.ts` via the `colorMode` module option and Nuxt UI's `ui` configuration. Themes are defined as Tailwind CSS theme presets.
+
+#### `useColorMode()`
+
+Nuxt's built-in `useColorMode()` composable provides:
+
+```ts
+const colorMode = useColorMode()
+colorMode.preference  // 'midnight' | 'light' | 'ocean' | 'forest' | 'sunset' | 'lavender'
+colorMode.value       // resolved mode
 ```
 
-Position in `AppProviders.tsx` (outermost → innermost):
+Automatically persists preference via cookie (SSR-compatible, no FOUC).
 
-```
-ThemeProvider          ← outermost
-  └─ ToastProvider
-      └─ AuthProvider
-          └─ NavigationProvider
-              └─ NotificationProvider
-```
-
-#### `useTheme()`
+#### `useTheme()` (custom composable)
 
 ```ts
 function useTheme(): {
   theme: ThemeId;
   setTheme: (id: ThemeId) => void;
-  colors: ThemeColors;
+  colors: ComputedRef<ThemeColors>;
   themes: typeof THEMES;
-  isDark: boolean;
+  isDark: ComputedRef<boolean>;
 }
 ```
 
-Returns the full theme context: current theme ID, setter function (also writes to localStorage and calls `syncCssVars()`), resolved `ThemeColors` object, the full `THEMES` record (all 6 themes), and a convenience `isDark` boolean derived from `colors.isDark`.
+Wraps `useColorMode()` and provides computed theme colors for the active theme. The `setTheme` function updates `colorMode.preference` and syncs CSS variables.
 
 #### `useColors()`
 
 ```ts
-function useColors(): ThemeColors
+function useColors(): ComputedRef<ThemeColors>
 ```
 
-Shortcut hook — returns only the `ThemeColors` object for the current theme. This is the primary hook used by UI components (22+ components import it).
+Shortcut composable — returns only the computed `ThemeColors` for the current theme. Used by UI components that need direct access to color tokens.
 
 ### 17.6 Theme Persistence
 
-- Stored in `localStorage` under key `'shopchain-theme'`.
-- Default: `'midnight'` (used when no localStorage value exists).
-- On `setTheme(id)`: updates React state **and** writes to `localStorage`.
-- On mount: reads from `localStorage`; falls back to `DEFAULT_THEME` if missing/invalid.
+- Stored via cookie (SSR-compatible, avoids flash of unstyled content).
+- Default: `'midnight'` (used when no cookie value exists).
+- On `setTheme(id)`: updates `colorMode.preference` which persists to cookie and syncs CSS variables.
+- On initial load: reads from cookie; falls back to `DEFAULT_THEME` if missing/invalid.
 
 ### 17.7 ThemePicker Component
 
-File: `src/components/features/ThemePicker.tsx`. Rendered in the Header.
+File: `components/features/ThemePicker.vue`. Rendered in the Header.
 
 | Feature | Detail |
 |---|---|
@@ -4220,7 +4260,7 @@ File: `src/components/features/ThemePicker.tsx`. Rendered in the Header.
 
 ### 17.8 Admin Theme
 
-The admin portal (`SuperAdminDashboard.tsx`) uses a **completely separate** theme system via the `ADMIN_THEMES` constant in `src/constants/adminThemes.ts`. It is NOT connected to the main `ThemeContext` but uses `syncAdminCssVars()` to write the same `--sc-*` CSS variables, enabling Tailwind semantic classes in the admin portal.
+The admin portal (`pages/admin/index.vue`) uses a **completely separate** theme system via the `ADMIN_THEMES` constant. It is NOT connected to the main color mode but uses `syncAdminCssVars()` to write the same `--sc-*` CSS variables, enabling Tailwind semantic classes in the admin portal.
 
 ```ts
 type AdminThemeId = 'dark' | 'light';
@@ -4237,9 +4277,9 @@ const ADMIN_THEMES: Record<AdminThemeId, AdminThemeColors> = { dark: { … }, li
 | Unique token | — | `adminAccent` (#6366F1) |
 | Primary color | Varies per theme | #6366F1 (Indigo) for both |
 | Background format | `rgba()` for `*Bg` tokens | Hex with alpha suffix (e.g., `#6366F115`) for `*Bg` tokens |
-| State management | `ThemeContext` + localStorage | Local `useState` in `SuperAdminDashboard` |
-| Toggle location | `ThemePicker` in header | `AdminSettingsTab` |
-| Persistence | `localStorage('shopchain-theme')` | Not persisted (resets to dark on reload) |
+| State management | Nuxt color mode (cookie) | Local `ref()` in admin page |
+| Toggle location | `ThemePicker` in header | Admin settings tab |
+| Persistence | Cookie (SSR-compatible) | Not persisted (resets to dark on reload) |
 
 #### Admin dark theme tokens
 
@@ -4268,11 +4308,10 @@ const ADMIN_THEMES: Record<AdminThemeId, AdminThemeColors> = { dark: { … }, li
 
 | # | Gap | Detail |
 |---|---|---|
-| 1 | No `prefers-color-scheme` detection | Theme does not auto-match OS dark/light preference; always defaults to `midnight` |
-| 2 | No cross-tab sync | `localStorage` changes in another tab are not listened for (`storage` event not handled); theme can desync across tabs |
-| 3 | Admin themes separate | `ADMIN_THEMES` uses its own `AdminThemeColors` interface (extends `ThemeColors` with `adminAccent`); not connected to main `ThemeContext` |
-| 4 | Admin theme not persisted | Admin dark/light selection resets to dark on page reload |
-| 5 | Admin/main themes diverged | Admin themes have their own `AdminThemeColors` interface; shared via `syncAdminCssVars()` but not guaranteed to stay aligned with main themes |
+| 1 | No `prefers-color-scheme` detection | Theme does not auto-match OS dark/light preference; always defaults to `midnight`. Nuxt color mode supports this — needs configuration. |
+| 2 | Admin themes separate | `ADMIN_THEMES` uses its own `AdminThemeColors` interface (extends `ThemeColors` with `adminAccent`); not connected to main color mode |
+| 3 | Admin theme not persisted | Admin dark/light selection resets to dark on page reload |
+| 4 | Admin/main themes diverged | Admin themes have their own `AdminThemeColors` interface; shared via `syncAdminCssVars()` but not guaranteed to stay aligned with main themes |
 
 ---
 
@@ -4284,37 +4323,37 @@ This section is a **consolidated master list** of gaps identified across the ent
 
 | # | Gap | Description | Also in |
 |---|---|---|---|
-| 1 | No backend API | All data is in-memory demo data (React state + constants). Resets on page reload. Backend required for persistence. | §12.7 |
-| 2 | No real authentication | Any non-empty credentials succeed in demo mode. Admin login uses hardcoded `admin@shopchain.com` / `admin123`. Real auth with JWT/session management needed. | §12.7 |
-| 3 | Stock not decremented on sale | POS calls `setSalesHistory()` but never calls `setProducts()` to reduce `product.stock`. Stock quantities remain unchanged after a sale. Must be implemented server-side. | §9.6 |
+| 1 | No backend API | All data is in-memory demo data (Pinia store state + constants). Resets on page reload. Backend required for persistence. | §12.7 |
+| 2 | No real authentication | Any non-empty credentials succeed in demo mode. Admin login uses hardcoded `admin@shopchain.com` / `admin123`. Real auth with OAuth2 PKCE needed. | §12.7 |
+| 3 | Stock not decremented on sale | POS does not reduce `product.stock` on sale completion. Stock quantities remain unchanged after a sale. Must be implemented server-side. | §9.6 |
 | 4 | Stock not restored on reversal | `executeReversal()` only updates the sale record status to `'reversed'` — product stock is not restored. | §9.6 |
 | 5 | No real payment processing | Payment method UI (cash, card, MoMo, split) collects data but performs no actual transaction. No payment gateway integration. | — |
-| 6 | Social login not implemented | Google/Apple `SocialButton` components render but have **no `onClick` handler**. Purely visual placeholders. | — |
-| 7 | Export not functional | Export PDF/CSV buttons exist (e.g., in Admin Audit tab) but have **no `onClick` handlers**. No file generation or download mechanism. | §12.7 |
+| 6 | Social login not implemented | Google/Apple social login buttons render but have no click handler. Purely visual placeholders. | — |
+| 7 | Export not functional | Export PDF/CSV buttons exist (e.g., in Admin Audit tab) but have no click handlers. No file generation or download mechanism. | §12.7 |
 
 ### 18.2 Important (Feature Completeness)
 
 | # | Gap | Description | Also in |
 |---|---|---|---|
 | 8 | Tax rate hardcoded + mismatched | POS hardcodes `const taxRate = 0.125` (12.5%) and displays "NHIL/VAT (12.5%)" on receipts. `ShopSettingsPage` form defaults `taxRate: '15'` (15%). The two values don't match, and POS never reads from shop settings. | — |
-| 9 | Branch state not synced | Creating branches in `ShopSettingsPage` updates local `setBranches()` state, but `handleSave()` does not push branches to `AuthContext.activeShop.branches`. | — |
-| 10 | Trial period not enforced | `TRIAL_DAYS = 14` constant exists in `plans.ts` but `trialDaysLeft` is hardcoded to `useState(0)` in `ShopContext.tsx`. No trial start date tracking, countdown, or expiry enforcement. `AccountPage` trial display only shows if `trialDaysLeft > 0`, which is never true. | — |
-| 11 | Admin plan management is local state | Plan CRUD/lifecycle in `AdminSubscriptionsTab` uses `useState`. No backend persistence, migration jobs, or exemption tracking. | — |
-| 12 | Usage metrics partially live | Only `products` and `team` counts are computed live from context. Others (`transactions`, `storageMB`, `suppliers`, `warehouses`) use static `DEMO_USAGE` constants. | — |
+| 9 | Branch state not synced | Creating branches in shop settings updates local store state, but save does not push branches to the API. | — |
+| 10 | Trial period not enforced | Trial days must be computed server-side from subscription `trial_ends_at`. No trial start date tracking, countdown, or expiry enforcement implemented yet. | — |
+| 11 | Admin plan management is local state | Plan CRUD/lifecycle in admin subscriptions tab uses local Pinia state. No backend persistence, migration jobs, or exemption tracking. | — |
+| 12 | Usage metrics partially live | Only `products` and `team` counts are computed live from store. Others (`transactions`, `storageMB`, `suppliers`, `warehouses`) use static demo constants. | — |
 | 12a | `UserRole` type partially out of sync | The `UserRole` type in `user.types.ts` has 9 values. `demoData.ts` ROLES/DEFAULT_PERMISSIONS use 12 role strings. Missing from type: `inventory_manager`, `inventory_officer`, `salesperson`, `accountant`. Type includes `inventory_clerk` which no other file uses. | §3.17 |
-| 12b | Bar/Kitchen subsystem is demo-only | The entire bar/restaurant POS subsystem (`KitchenOrderContext`, tills, kitchen orders) is in-memory React state. No backend persistence. All data resets on page refresh. | — |
+| 12b | Bar/Kitchen subsystem is demo-only | The entire bar/restaurant POS subsystem (kitchen Pinia store, tills, kitchen orders) is in-memory state. No backend persistence. All data resets on page refresh. | — |
 | 12c | Bar POS stock not decremented | Similar to retail POS (gap #3): Bar POS does not reduce product stock when orders are placed or till is closed. | §9.6 |
-| 13 | `addProduct` form wiring | All inputs use `defaultValue` instead of controlled `value` + `onChange`. Form values cannot be read or submitted programmatically. | §14.3 |
+| 13 | `addProduct` form wiring | Form inputs need proper `v-model` binding with Zod validation. Form values must be reactive and submittable. | §14.3 |
 | 14 | Audit trail not implemented | Defined in plan features but no shop-level audit trail exists. Admin-level audit exists (`AdminAuditFraudTab`) but not for individual shops. | — |
 | 15 | API access feature | Defined in plan comparison table ("API Access") but no API key management or developer portal exists. | — |
 | 16 | Custom branding — partially implemented | Receipt logo **file upload UI exists** in `ShopSettingsPage` (converts to DataURL via `<input type="file">`), but the uploaded logo is not persisted and does not render on POS receipts. Shop icon uses emoji picker only. | — |
 | 17 | Auto-reorder | Max plan feature for POs but not implemented. No automatic PO generation based on reorder points. | — |
-| 18 | 2FA for shop users — UI stub only | `AccountPage` has a 2FA toggle with placeholder QR code, but clicking "Enable" just sets `setTwoFAEnabled(true)`. No actual TOTP/authenticator validation. Admin login also has non-validated 2FA (any 6-digit code accepted). | — |
+| 18 | 2FA for shop users — UI stub only | Account page has a 2FA toggle with placeholder QR code, but enabling just sets local state. No actual TOTP/authenticator validation. Admin login also has non-validated 2FA (any 6-digit code accepted). | — |
 | 19 | Data export formats | "CSV" and "All formats" defined in plan features. No actual export generation implemented anywhere. | — |
 | 20 | Admin permission enforcement | 5 admin roles × 12 permissions are defined (`ADMIN_ROLES`) but **not enforced** in the UI. All admin users see all 10 tabs and can perform all actions regardless of assigned role. | §12.7 |
 | 21 | `draft → pending` PO transition | No "Submit for Approval" button exists for draft POs. Only Cancel is available from `draft` status. The `draft → pending` transition is not implemented. | §10.5 |
-| 22 | ErrorBoundary dead code | `ErrorBoundary` component exists (`src/components/ErrorBoundary.tsx`) but is **never rendered** in `App.tsx` or any parent. No global error catching is active. | §15.1 |
-| 23 | `validators.ts` dead code | Exports 8 validation functions (`isRequired`, `isEmail`, `isPhone`, `minLength`, `maxLength`, `isPositiveNumber`, `isNonNegative`, `validate`) but **no form component imports them**. All validation is inline. | §14.3 |
+| 22 | Global error handling | Nuxt provides `error.vue` for global error handling — must be implemented with proper error reporting integration. | §15.1 |
+| 23 | Validation consolidation | Inline validation should be migrated to Zod schemas for consistency with Nuxt UI form integration. | §14.3 |
 
 ### 18.3 Enhancements (Nice to Have)
 
@@ -4323,7 +4362,7 @@ This section is a **consolidated master list** of gaps identified across the ent
 | 24 | Offline support | No Service Worker, no offline-first architecture. POS would break entirely offline. Needs sync-when-online capability. |
 | 25 | Barcode scanner integration | `ScannerModal` has 8 hardcoded `DEMO_BARCODES` and simulates detection with a `setTimeout` (3.5–5.5s random delay). No `navigator.mediaDevices.getUserMedia()` or WebRTC — purely visual simulation. |
 | 26 | Receipt printer integration | Print button shows `toast.success('Receipt sent to printer')` only. No `window.print()` call, no browser print dialog, no thermal printer communication. |
-| 27 | Real-time notifications | All notifications are in-memory React state with hardcoded `INITIAL_NOTIFICATIONS`. Only `in_app` channel is implemented. No WebSocket, SSE, or polling. Resets on page refresh. |
+| 27 | Real-time notifications | All notifications are in-memory Pinia state with hardcoded initial data. Only `in_app` channel is implemented. Laravel Echo/Reverb integration needed for WebSocket push. Resets on page refresh. |
 | 28 | Multi-language support | All UI text is hardcoded in English. No i18n library or translation system. No language switching mechanism. |
 | 29 | Image upload for shop icon | Shop icon selector uses emoji picker only. Real image upload with cloud storage needed. (Note: Receipt logo file upload **does** exist but is not persisted — see gap #16.) |
 
@@ -4352,5 +4391,27 @@ This section is a **consolidated master list** of gaps identified across the ent
 - **§17.5** Updated `useTheme()` return type to include `themes` and `isDark`.
 - **§17.8** Updated admin theme description — now uses typed `AdminThemeColors` interface and `syncAdminCssVars()`.
 - **§18** Added gaps: UserRole partial sync (12a), bar/kitchen demo-only (12b), bar POS stock not decremented (12c).
+
+### v1.2 — 2026-02-28
+
+Architecture migration from React + Inertia.js to standalone Nuxt 3 + Vue 3 application consuming the Laravel API over HTTP.
+
+- **§2.1** Replaced entire tech stack table: Nuxt 3, Vue 3, lucide-vue-next, Nuxt file-based routing, Pinia, Nuxt UI, Vue class binding, Zod validation, laravel-echo.
+- **§2.2** Replaced all architecture patterns: Nuxt auto code-splitting, Pinia stores, file-based routing, `~/` auto-imports, Nuxt build optimization, strict TypeScript.
+- **§2.3** Replaced project structure with Nuxt 3 directory layout: `pages/`, `components/`, `composables/`, `stores/`, `middleware/`, `plugins/`, `layouts/`, `utils/`, `types/`.
+- **§3.28** Renamed "KitchenOrderContext" to "Kitchen Order Store" (Pinia store).
+- **§5.4** Updated trial period note: server-side computation via API.
+- **§6.0** Auth layout now uses Nuxt `layouts/auth.vue`.
+- **§15.1** Replaced React ErrorBoundary with Nuxt error handling (`error.vue`, `onErrorCaptured`, API interceptor).
+- **§15.2** Toast system now uses Nuxt UI `useToast()`.
+- **§15.4–15.5** Updated component file references from `.tsx` to `.vue`; updated loading patterns for Nuxt.
+- **§16.3** Updated all layout component file references to `.vue`.
+- **§17.4** Updated code examples from JSX (`className`) to Vue template syntax (`:class`).
+- **§17.5** Replaced ThemeContext provider tree with Nuxt color mode composables.
+- **§17.6** Theme persistence changed from localStorage to cookie (SSR-compatible).
+- **§17.8** Updated admin theme state management from `useState` to `ref()`.
+- **§17.9** Removed cross-tab sync gap (cookies sync automatically); updated remaining gaps.
+- **§18** Updated all React/Context/useState references to Pinia/store/ref() equivalents throughout known gaps.
+- **Global** Replaced all `src/` path prefixes with Nuxt-relative paths. Replaced `PageId` with route path strings. Removed all `.tsx` file extensions in favor of `.vue`.
 
 *End of Functional Specification Document*
