@@ -994,15 +994,67 @@ Migrate pages in dependency order, matching the backend phase they depend on:
 
 ### 14.1 Development Environment
 
-- Docker Compose setup:
-  - PostgreSQL 16
-  - Redis 7
-  - Meilisearch
-  - MinIO (S3-compatible, local development)
-  - Mailpit (email testing)
-  - Laravel Reverb (WebSocket server)
-  - Node.js 20 (Nuxt 3 dev server)
-- Laravel Sail or custom docker-compose.yml
+**Laravel Sail** (Docker-based) with the following services:
+
+```bash
+# Initial project setup with Sail services
+php artisan sail:install --with=pgsql,redis,meilisearch,minio,mailpit
+```
+
+| Service      | Image                            | Port(s)     | Purpose                                                              |
+| ------------ | -------------------------------- | ----------- | -------------------------------------------------------------------- |
+| `laravel`    | Sail PHP 8.3 (app container)     | 80          | API application, Artisan commands, queue workers                     |
+| `pgsql`      | PostgreSQL 16                    | 5432        | Primary database (59 tables, RLS-enabled multi-tenancy)              |
+| `redis`      | Redis 7                         | 6379        | Cache (sessions, plan usage counters, rate limiting), queue broker (Horizon), broadcasting backend |
+| `meilisearch`| Meilisearch (latest)             | 7700        | Full-text search engine (Laravel Scout — products, barcodes, customers) |
+| `minio`      | MinIO (S3-compatible)            | 9000 / 9001 | Local S3 storage (product images, logos, CSV/PDF exports, receipts, backups) |
+| `mailpit`    | Mailpit                         | 1025 / 8025 | Email testing (SMTP capture + web UI for notification previews)      |
+
+**Additional processes** (run alongside Sail, not separate containers):
+
+| Process            | Command                        | Purpose                                                         |
+| ------------------ | ------------------------------ | --------------------------------------------------------------- |
+| Laravel Reverb     | `sail artisan reverb:start`    | WebSocket server (kitchen display, notifications, POS sync)     |
+| Laravel Horizon    | `sail artisan horizon`         | Queue worker dashboard + supervisor (notifications, exports, batch jobs) |
+| Nuxt 3 dev server  | `cd apps/web && npm run dev`   | Frontend dev server with HMR (runs outside Sail on host Node.js) |
+
+**Key `.env` configuration for Sail:**
+
+```env
+# Database
+DB_CONNECTION=pgsql
+DB_HOST=pgsql
+DB_PORT=5432
+DB_DATABASE=shopchain
+
+# Cache & Queue
+CACHE_STORE=redis
+QUEUE_CONNECTION=redis
+SESSION_DRIVER=redis
+REDIS_HOST=redis
+
+# Search
+SCOUT_DRIVER=meilisearch
+MEILISEARCH_HOST=http://meilisearch:7700
+
+# Storage (MinIO as S3)
+FILESYSTEM_DISK=s3
+AWS_ENDPOINT=http://minio:9000
+AWS_USE_PATH_STYLE_ENDPOINT=true
+
+# Mail
+MAIL_MAILER=smtp
+MAIL_HOST=mailpit
+MAIL_PORT=1025
+
+# Broadcasting (Reverb)
+BROADCAST_CONNECTION=reverb
+REVERB_HOST=localhost
+REVERB_PORT=8080
+
+# CORS (allow Nuxt dev server)
+CORS_ALLOWED_ORIGINS=http://localhost:3000
+```
 
 ### 14.2 Testing Strategy
 
