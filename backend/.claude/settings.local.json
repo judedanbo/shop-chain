@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./vendor/bin/sail up:*)"
+      "Bash(./vendor/bin/sail up:*)",
+      "Bash(./vendor/bin/sail artisan:*)",
+      "Bash(./vendor/bin/sail ps:*)"
     ]
   }
 }

@@ -1,0 +1,1 @@
+export { KitchenDisplayPage } from './KitchenDisplayPage';

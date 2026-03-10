@@ -1,0 +1,108 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+
+/* ── Theme color tokens (set dynamically by ThemeContext) ── */
+@theme {
+  --color-bg: var(--sc-bg);
+  --color-surface: var(--sc-surface);
+  --color-surface-alt: var(--sc-surface-alt);
+  --color-border: var(--sc-border);
+  --color-border-light: var(--sc-border-light);
+  --color-text: var(--sc-text);
+  --color-text-muted: var(--sc-text-muted);
+  --color-text-dim: var(--sc-text-dim);
+  --color-primary: var(--sc-primary);
+  --color-primary-light: var(--sc-primary-light);
+  --color-primary-dark: var(--sc-primary-dark);
+  --color-primary-bg: var(--sc-primary-bg);
+  --color-accent: var(--sc-accent);
+  --color-accent-bg: var(--sc-accent-bg);
+  --color-success: var(--sc-success);
+  --color-success-bg: var(--sc-success-bg);
+  --color-warning: var(--sc-warning);
+  --color-warning-bg: var(--sc-warning-bg);
+  --color-danger: var(--sc-danger);
+  --color-danger-bg: var(--sc-danger-bg);
+  --color-orange: var(--sc-orange);
+  --color-orange-bg: var(--sc-orange-bg);
+  --color-tab-active: var(--tab-active, var(--sc-primary));
+  --breakpoint-xl2: 1440px;
+
+  /* ── Z-index scale ── */
+  --z-pos-float-bar: 799;
+  --z-pos-float: 800;
+  --z-mobile-nav: 900;
+  --z-mobile-overlay: 998;
+  --z-sidebar: 999;
+  --z-popover-backdrop: 999;
+  --z-popover: 1000;
+  --z-modal-backdrop: 1100;
+  --z-modal: 1101;
+  --z-modal-scanner-backdrop: 1200;
+  --z-modal-scanner: 1201;
+  --z-dropdown-backdrop: 9998;
+  --z-dropdown: 9999;
+  --z-toast: 10000;
+}
+
+@utility form-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { border-radius: 3px; }
+
+  input[type="number"]::-webkit-inner-spin-button { opacity: 0; }
+
+  button:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes kitchenPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
