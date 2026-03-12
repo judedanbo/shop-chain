@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(wc:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(for dir in Models Services Enums Traits Events Listeners Policies States Data Rules Scopes Casts Observers)",
+      "Bash(do touch \"packages/shopchain-core/src/$dir/.gitkeep\")",
+      "Bash(done)",
+      "Bash(composer update:*)"
     ]
   }
 }

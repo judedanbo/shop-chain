@@ -1,0 +1,35 @@
+{
+    "name": "shopchain/core",
+    "description": "Shared domain package for ShopChain — models, services, enums, migrations, and business logic.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^12.0",
+        "illuminate/database": "^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "ShopChain\\Core\\": "src/",
+            "ShopChain\\Core\\Database\\Factories\\": "database/factories/",
+            "ShopChain\\Core\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ShopChain\\Core\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "ShopChain\\Core\\CoreServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
