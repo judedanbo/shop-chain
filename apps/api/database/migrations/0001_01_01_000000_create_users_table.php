@@ -12,28 +12,38 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
+            $table->uuid('id')->primary();
+            $table->text('name');
+            $table->text('email')->unique();
+            $table->text('phone')->nullable();
+            $table->text('password');
+            $table->text('avatar_url')->nullable();
+            $table->string('status')->default('pending');
+            $table->timestampTz('email_verified_at')->nullable();
             $table->rememberToken();
-            $table->timestamps();
+            $table->timestampTz('last_active_at')->nullable();
+            $table->timestampsTz();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
             $table->string('token');
-            $table->timestamp('created_at')->nullable();
+            $table->timestampTz('created_at')->nullable();
         });
 
         Schema::create('sessions', function (Blueprint $table) {
-            $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
-            $table->string('ip_address', 45)->nullable();
-            $table->text('user_agent')->nullable();
-            $table->longText('payload');
-            $table->integer('last_activity')->index();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('user_id')->constrained()->cascadeOnDelete();
+            $table->text('device');
+            $table->ipAddress('ip_address')->nullable();
+            $table->text('location')->nullable();
+            $table->boolean('is_current')->default(false);
+            $table->timestampTz('last_active')->useCurrent();
+            $table->timestampTz('created_at')->useCurrent();
+            $table->timestampTz('expires_at')->nullable();
+
+            $table->index('user_id', 'idx_sessions_user');
+            $table->index(['user_id', 'last_active'], 'idx_sessions_active');
         });
     }
 
@@ -42,8 +52,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('users');
     }
 };

@@ -153,33 +153,48 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
   - [x] Pest for testing *(installed and configured with Feature/Unit suites — 2/2 tests passing)*
   - [ ] GitHub Actions CI pipeline
 
-### 1.2 Database Schema & Migrations
+### 1.2 Database Schema & Migrations ✅
 
 Translate `DATABASE-SCHEMA.md` into Laravel migrations within the shared package.
 
-- [ ] Create all 52 application table migrations + framework/package tables with proper ordering (respecting FK dependencies) *(0/52 app tables done)*
+- [x] Create all 52 application table migrations + framework/package tables with proper ordering (respecting FK dependencies) *(27 migrations total: 14 existing + 13 new in shopchain-core)*
   - [x] Framework tables (7): `users`, `sessions`, `cache`, `jobs`, `job_batches`, `failed_jobs`, `password_reset_tokens`
   - [x] Passport tables (5): `oauth_auth_codes`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_clients`, `oauth_device_codes` *(published to apps/api/database/migrations/)*
   - [x] Package-published tables (~8): `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions` (spatie/permission), `activity_log` (spatie/activitylog), `two_factor_authentications` (laragear/two-factor), `features` (laravel/pennant) *(all migrations published to apps/api/database/migrations/)*
-- [ ] Define PostgreSQL enum types as Laravel enums (PHP 8.1 backed enums) *(not started)*
-  - [ ] `UserStatus`, `ShopStatus`, `BranchStatus`, `BranchType`, `MemberStatus`, `ShopRole`, `AdminRole`
-  - [ ] `ProductStatus`, `CategoryStatus`, `BatchStatus`, `BatchCondition`, `AdjustmentStatus`, `AdjustmentType`, `TransferStatus`, `UnitType`
-  - [ ] `WarehouseStatus`, `WarehouseType`
-  - [ ] `SupplierStatus`, `POStatus`, `PaymentTerms`, `GoodsReceiptStatus`
-  - [ ] `SaleStatus`, `SaleSource`, `PayMethod`, `DiscountType`, `CustomerType`
-  - [ ] `OrderType`, `KitchenOrderStatus`, `KitchenItemStatus`
-  - [ ] `PlanLifecycle`, `SubscriptionStatus`, `BillingStatus`, `PayType`
-  - [ ] `AdminTeamStatus`, `AnnouncementTarget`, `AnnouncementPriority`, `AnnouncementStatus`
-  - [ ] `AuditCategory`, `RiskLevel`, `InvestigationStatus`, `AnomalyStatus`
-  - [ ] `NotifCategory`, `NotifPriority`, `NotifChannel`, `NotifAction`
-  - [ ] `ExemptionUnit`, `ExpenseCategory`
-- [ ] Create all indexes per DATABASE-SCHEMA.md
-- [ ] Create all unique constraints and CHECK constraints
-- [ ] Set up Row-Level Security (RLS) policies for shop-scoped tables
-- [ ] Create database seeders:
-  - [ ] `PlanSeeder` — Free, Basic, Max plans with limits and features
-  - [ ] `DemoSeeder` — Translation of `demoData.ts` for development/testing
-  - [ ] `PermissionSeeder` — 36 shop permissions (including 4 bar/kitchen: `bar_access`, `bar_discount`, `kitchen_access`, `bar_analysis`) + 12 admin permissions
+  - [x] UUID compatibility: existing migrations modified (`users` table rewritten with UUID PK, Passport `foreignId→foreignUuid`, Spatie Permission `unsignedBigInteger→uuid` morph keys, `User` model uses `HasUuids` trait)
+  - [x] Core package migrations (13 files in `packages/shopchain-core/database/migrations/`):
+    - `_130000_create_enum_types` — 48 PostgreSQL `CREATE TYPE` enums with CASCADE cleanup for `migrate:fresh`
+    - `_130001_create_tenant_tables` — shops, branches, shop_members, branch_members
+    - `_130002_create_product_catalog_tables` — categories, units_of_measure, products, warehouses, product_locations
+    - `_130003_create_supplier_tables` — suppliers, supplier_products, purchase_orders, po_items
+    - `_130004_create_inventory_tables` — batches, stock_adjustments, stock_transfers, price_history, goods_receipts, goods_receipt_items
+    - `_130005_create_sales_tables` — customers, tills, sales, sale_items, sale_payments
+    - `_130006_create_kitchen_tables` — kitchen_orders, kitchen_order_items, held_orders, held_order_items, till_payments, pos_held_orders, pos_held_order_items
+    - `_130007_create_billing_tables` — plans (TEXT PK), subscriptions, payment_methods, billing_records, billing_exemptions
+    - `_130008_create_admin_tables` — admin_users, announcements
+    - `_130009_create_audit_tables` — audit_events, investigations, investigation_events, investigation_notes, anomalies, anomaly_events, detection_rules
+    - `_130010_create_platform_tables` — admin_expenses, admin_expense_attachments, milestones
+    - `_130011_create_notification_tables` — notifications (with `notif_channel[]` array), notification_preferences
+    - `_130012_create_rls_policies` — RLS on 23 shop-scoped tables
+- [x] Define PostgreSQL enum types as Laravel enums (PHP 8.1 backed enums) *(48 enum files in `packages/shopchain-core/src/Enums/`)*
+  - [x] `UserStatus`, `ShopStatus`, `BranchStatus`, `BranchType`, `MemberStatus`, `ShopRole`, `AdminRole`
+  - [x] `ProductStatus`, `CategoryStatus`, `BatchStatus`, `BatchCondition`, `AdjustmentStatus`, `AdjustmentType`, `TransferStatus`, `UnitType`
+  - [x] `WarehouseStatus`, `WarehouseType`
+  - [x] `SupplierStatus`, `PoStatus`, `PaymentTerms`, `GoodsReceiptStatus`
+  - [x] `SaleStatus`, `SaleSource`, `PayMethod`, `TillPayMethod`, `DiscountType`, `CustomerType`
+  - [x] `OrderType`, `KitchenOrderStatus`, `KitchenItemStatus`
+  - [x] `PlanLifecycle`, `SubscriptionStatus`, `BillingStatus`, `PayType`
+  - [x] `AdminTeamStatus`, `AnnouncementTarget`, `AnnouncementPriority`, `AnnouncementStatus`
+  - [x] `AuditCategory`, `RiskLevel`, `InvestigationStatus`, `AnomalyStatus`
+  - [x] `NotifCategory`, `NotifPriority`, `NotifChannel`, `NotifAction`
+  - [x] `ExemptionUnit`, `ExpenseCategory`
+- [x] Create all indexes per DATABASE-SCHEMA.md *(partial indexes, composite indexes, DESC indexes)*
+- [x] Create all unique constraints and CHECK constraints *(product_locations location check, stock_transfers source/dest checks)*
+- [x] Set up Row-Level Security (RLS) policies for shop-scoped tables *(23 tables with tenant_isolation + tenant_insert policies)*
+- [x] Create database seeders:
+  - [x] `PlanSeeder` — Free (GH₵0), Basic (GH₵49), Max (GH₵149) plans with limits and features JSONB
+  - [ ] `DemoSeeder` — Translation of `demoData.ts` for development/testing *(deferred to later phase)*
+  - [x] `PermissionSeeder` — 48 permissions (36 shop + 12 admin), 12 shop roles with permission assignments (167 role-permission mappings)
 
 ### 1.3 Eloquent Models (Shared Package)
 
