@@ -25,7 +25,7 @@ Three-layer separation: a shared domain core, an API application, and a standalo
 │     API Application    │         │      Web Application         │
 │    (shopchain-api)     │◄─HTTP── │     (shopchain-web)          │
 │                        │         │                              │
-│  Laravel 12            │         │  Nuxt 3 + Vue 3 + TypeScript │
+│  Laravel 12            │         │  Nuxt 4 + Vue 3 + TypeScript │
 │  Passport (OAuth2)     │         │  OAuth2 PKCE (token-based)   │
 │  REST endpoints        │         │  Nuxt file-based routing     │
 │  Mobile + external API │         │  Nuxt UI component library   │
@@ -80,8 +80,8 @@ Three-layer separation: a shared domain core, an API application, and a standalo
 | Push notifications | kreait/laravel-firebase + laravel-notification-channels/fcm | FCM push via Laravel notification pipeline                                            |
 | SMS (Ghana)        | samuelmwangiw/africastalking-laravel                        | Africa's Talking SMS/voice; laravel-notification-channels/twilio fallback             |
 | TypeScript sync    | dedoc/scramble + openapi-typescript                         | Auto-generate OpenAPI spec from API; generate TS types from spec                      |
-| Frontend framework | Nuxt 3 (Vue 3 + TypeScript)                                 | File-based routing, SSR/SPA, auto-imports, built-in data fetching                     |
-| UI library         | Nuxt UI (Radix Vue + Tailwind CSS)                          | Official Nuxt component library; accessible, themeable, consistent                    |
+| Frontend framework | Nuxt 4 (Vue 3 + TypeScript)                                 | File-based routing, SSR/SPA, auto-imports, built-in data fetching                     |
+| UI library         | Nuxt UI v4 (Reka UI + Tailwind CSS)                         | Official Nuxt component library; 125+ components, accessible, themeable, Nuxt UI Pro unified |
 | State management   | Pinia                                                       | Official Vue state manager; modular stores, devtools, SSR support                     |
 | CORS               | fruitcake/laravel-cors (or Laravel 11+ built-in)            | Required for standalone SPA to call API cross-origin                                  |
 | Settings           | spatie/laravel-settings                                     | Typed settings groups with DB storage, casting, encryption                            |
@@ -105,13 +105,13 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
   - [ ] Configure API-only middleware stack (no sessions, no CSRF)
   - [x] API versioning via route prefix (`/api/v1/`)
   - [ ] Configure rate limiting (per-user, per-IP)
-- [ ] Create `apps/web/` — Nuxt 3 standalone application *(not started)*
-  - [ ] Initialize with `npx nuxi@latest init apps/web`
-  - [ ] Install core modules: `@nuxt/ui`, `@pinia/nuxt`, `@vueuse/nuxt`
-  - [ ] Install `laravel-echo` + `pusher-js` for Reverb WebSocket client
-  - [ ] Configure `nuxt.config.ts`: runtime config for API base URL, OAuth2 client ID, Reverb host
+- [x] Create `apps/web/` — Nuxt 4 standalone application
+  - [x] Initialize with manual scaffolding (Nuxt 4 app dir convention)
+  - [x] Install core modules: `@nuxt/ui`, `@pinia/nuxt`, `@vueuse/nuxt`
+  - [x] Install `laravel-echo` + `pusher-js` for Reverb WebSocket client
+  - [x] Configure `nuxt.config.ts`: runtime config for API base URL, OAuth2 client ID, Reverb host
   - [ ] Set up OAuth2 PKCE auth plugin (authorization code grant, token storage, refresh)
-  - [ ] Set up file-based routing under `pages/`
+  - [x] Set up file-based routing under `pages/`
   - [ ] Create route middleware: `auth`, `guest`, `shop`, `permission`
   - [ ] Create API plugin (`$fetch` wrapper with base URL, token injection, error interceptors)
 - [ ] Configure CORS on API application to allow web app origin
@@ -867,9 +867,9 @@ All prefixed with `/api/v1/admin/`. Protected by admin guard + admin permission 
 
 ---
 
-## Phase 12 — Frontend (Nuxt 3 + Vue 3)
+## Phase 12 — Frontend (Nuxt 4 + Vue 3)
 
-Build the standalone Nuxt 3 web application that consumes the Laravel API over HTTP.
+Build the standalone Nuxt 4 web application that consumes the Laravel API over HTTP.
 
 ### 12.1 Application Foundation
 
@@ -933,7 +933,7 @@ Migrate pages in dependency order, matching the backend phase they depend on:
 ### 12.4 Component Migration Strategy
 
 - **Vue SFCs (`.vue`):** All components as Single-File Components with `<script setup lang="ts">`, `<template>`, and `<style scoped>`
-- **Nuxt UI components:** Replace custom `components/ui/` primitives (Button, Input, Badge, Card, Modal, Select, etc.) with Nuxt UI equivalents (`UButton`, `UInput`, `UBadge`, `UCard`, `UModal`, `USelect`, etc.)
+- **Nuxt UI components:** Replace custom `components/ui/` primitives (Button, Input, Badge, Card, Modal, Select, etc.) with Nuxt UI v4 equivalents (`UButton`, `UInput`, `UBadge`, `UCard`, `UModal`, `USelect`, etc.) — Nuxt UI v4 is Reka UI-based with 125+ components; `U` prefix convention unchanged
 - **Icons:** `lucide-vue-next` (drop-in replacement for `lucide-react`)
 - **Conditional classes:** Vue's built-in `:class` binding replaces `clsx` — e.g., `:class="{ 'bg-primary': isActive, 'opacity-50': disabled }"`
 - **Forms:** Nuxt UI form components with Zod validation schemas; replaces hand-written inline validation
@@ -1016,7 +1016,7 @@ php artisan sail:install --with=pgsql,redis,meilisearch,minio,mailpit
 | ------------------ | ------------------------------ | --------------------------------------------------------------- |
 | Laravel Reverb     | `sail artisan reverb:start`    | WebSocket server (kitchen display, notifications, POS sync)     |
 | Laravel Horizon    | `sail artisan horizon`         | Queue worker dashboard + supervisor (notifications, exports, batch jobs) |
-| Nuxt 3 dev server  | `cd apps/web && npm run dev`   | Frontend dev server with HMR (runs outside Sail on host Node.js) |
+| Nuxt 4 dev server  | `cd apps/web && npm run dev`   | Frontend dev server with HMR (runs outside Sail on host Node.js) |
 
 **Key `.env` configuration for Sail:**
 
@@ -1077,7 +1077,7 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000
 ### 14.3 Deployment
 
 - **API app:** Containerized (Docker), deployed to cloud VPS or managed platform
-- **Web app:** Nuxt 3 deployed as Node.js SSR server (containerized) or pre-rendered static site (CDN)
+- **Web app:** Nuxt 4 deployed as Node.js SSR server (containerized) or pre-rendered static site (CDN)
 - **Database:** Managed PostgreSQL (e.g., Supabase, AWS RDS, DigitalOcean)
 - **Cache/Queue:** Managed Redis (e.g., Upstash, AWS ElastiCache)
 - **Storage:** S3 or compatible (DigitalOcean Spaces, Cloudflare R2)
@@ -1149,7 +1149,7 @@ Phase 10: Settings ──── depends on Phase 1 ─────────�
                                                      │
 Phase 11: Exports ──── depends on Phase 2-3 ────────┤
                                                      │
-Phase 12: Frontend (Nuxt 3 + Vue 3) ── progressive ──┤
+Phase 12: Frontend (Nuxt 4 + Vue 3) ── progressive ──┤
   (pages built as their backend phase completes)     │
                                                      │
 Phase 13: Mobile API ──── inherits from Phase 2-9 ──┤
