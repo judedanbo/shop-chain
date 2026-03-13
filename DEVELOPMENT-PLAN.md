@@ -96,208 +96,208 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
 
 ### 1.1 Project Scaffolding
 
-- Initialize Laravel 12 monorepo workspace
-- Create `packages/shopchain-core/` as a local Composer package
-  - Set up `composer.json` with PSR-4 autoloading
-  - Configure package service provider for model/migration/config registration
-- Create `apps/api/` — Laravel 12 API application
-  - Install Laravel Passport (publishes its own migration tables: `oauth_auth_codes`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_clients`, `oauth_personal_access_clients` — these replace Sanctum's `personal_access_tokens`)
-  - Configure API-only middleware stack (no sessions, no CSRF)
-  - API versioning via route prefix (`/api/v1/`)
-  - Configure rate limiting (per-user, per-IP)
-- Create `apps/web/` — Nuxt 3 standalone application
-  - Initialize with `npx nuxi@latest init apps/web`
-  - Install core modules: `@nuxt/ui`, `@pinia/nuxt`, `@vueuse/nuxt`
-  - Install `laravel-echo` + `pusher-js` for Reverb WebSocket client
-  - Configure `nuxt.config.ts`: runtime config for API base URL, OAuth2 client ID, Reverb host
-  - Set up OAuth2 PKCE auth plugin (authorization code grant, token storage, refresh)
-  - Set up file-based routing under `pages/`
-  - Create route middleware: `auth`, `guest`, `shop`, `permission`
-  - Create API plugin (`$fetch` wrapper with base URL, token injection, error interceptors)
-- Configure CORS on API application to allow web app origin
-- Shared package dependencies (install in `packages/shopchain-core/`):
-  - **Tier 1 — Architectural (all phases depend on these):**
-    - `spatie/laravel-data` — unified DTOs, form requests, API resources, TS type source
-    - `spatie/laravel-model-states` — declarative status lifecycles for PO, sale, order, transfer, adjustment, goods receipt
-    - `spatie/laravel-query-builder` — URL-driven filtering, sorting, includes for all list endpoints
-    - `spatie/laravel-activitylog` — audit trail with before/after snapshots, causer, custom properties
-    - `spatie/laravel-permission` — team-scoped RBAC with multi-guard and wildcard permissions
-    - `laravel/pennant` — feature flags for plan-gated features (14 feature keys)
+- [x] Initialize Laravel 12 monorepo workspace
+- [x] Create `packages/shopchain-core/` as a local Composer package
+  - [x] Set up `composer.json` with PSR-4 autoloading
+  - [x] Configure package service provider for model/migration/config registration
+- [ ] Create `apps/api/` — Laravel 12 API application *(partial — app exists, middleware/rate-limiting incomplete)*
+  - [x] Install Laravel Passport *(v13.6.0 — publishes migration tables: `oauth_auth_codes`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_clients`, `oauth_device_codes`)*
+  - [ ] Configure API-only middleware stack (no sessions, no CSRF)
+  - [x] API versioning via route prefix (`/api/v1/`)
+  - [ ] Configure rate limiting (per-user, per-IP)
+- [ ] Create `apps/web/` — Nuxt 3 standalone application *(not started)*
+  - [ ] Initialize with `npx nuxi@latest init apps/web`
+  - [ ] Install core modules: `@nuxt/ui`, `@pinia/nuxt`, `@vueuse/nuxt`
+  - [ ] Install `laravel-echo` + `pusher-js` for Reverb WebSocket client
+  - [ ] Configure `nuxt.config.ts`: runtime config for API base URL, OAuth2 client ID, Reverb host
+  - [ ] Set up OAuth2 PKCE auth plugin (authorization code grant, token storage, refresh)
+  - [ ] Set up file-based routing under `pages/`
+  - [ ] Create route middleware: `auth`, `guest`, `shop`, `permission`
+  - [ ] Create API plugin (`$fetch` wrapper with base URL, token injection, error interceptors)
+- [ ] Configure CORS on API application to allow web app origin
+- [x] Shared package dependencies (install in `packages/shopchain-core/`):
+  - **Tier 1 — Architectural (all phases depend on these):** *(all installed and configured)*
+    - [x] `spatie/laravel-data` v4.20.0 — unified DTOs, form requests, API resources, TS type source *(config published, structure caching includes core package)*
+    - [x] `spatie/laravel-model-states` v2.13.1 — declarative status lifecycles for PO, sale, order, transfer, adjustment, goods receipt
+    - [x] `spatie/laravel-query-builder` v6.4.4 — URL-driven filtering, sorting, includes for all list endpoints *(config published)*
+    - [x] `spatie/laravel-activitylog` v4.12.1 — audit trail with before/after snapshots, causer, custom properties *(config published, migrations published)*
+    - [x] `spatie/laravel-permission` v6.24.1 — team-scoped RBAC with multi-guard and wildcard permissions *(config: teams=true, team_foreign_key=shop_id, wildcard=true; migration published)*
+    - [x] `laravel/pennant` v1.21.0 — feature flags for plan-gated features *(config published, migration published, 14 feature keys defined in AppServiceProvider)*
   - **Tier 2 — Domain features (installed per phase):**
-    - `spatie/laravel-medialibrary` — file uploads with S3, image conversions (Phase 2.1+)
-    - `spatie/laravel-pdf` — Chromium/Cloudflare PDF rendering for receipts & reports (Phase 3.1+)
-    - `elegantly/laravel-money` — brick/money Eloquent casting for GHS monetary fields (Phase 2.2+)
-    - `laragear/two-factor` — TOTP 2FA with recovery codes, migrations, throttling (Phase 1.4)
-    - `devtobi/cashier-paystack` — Cashier-style Paystack subscription management (Phase 8)
-    - `unicodeveloper/laravel-paystack` — Paystack one-time charges and MoMo (Phase 8)
-    - `maatwebsite/excel` — chunked import/export with queue support (Phase 2.2)
+    - [ ] `spatie/laravel-medialibrary` — file uploads with S3, image conversions (Phase 2.1+)
+    - [ ] `spatie/laravel-pdf` — Chromium/Cloudflare PDF rendering for receipts & reports (Phase 3.1+)
+    - [ ] `elegantly/laravel-money` — brick/money Eloquent casting for GHS monetary fields (Phase 2.2+)
+    - [x] `laragear/two-factor` v4.0.0 — TOTP 2FA with recovery codes, migrations, throttling *(installed in apps/api, config: issuer=ShopChain, 8 recovery codes; migration published)*
+    - [ ] `devtobi/cashier-paystack` — Cashier-style Paystack subscription management (Phase 8)
+    - [ ] `unicodeveloper/laravel-paystack` — Paystack one-time charges and MoMo (Phase 8)
+    - [ ] `maatwebsite/excel` — chunked import/export with queue support (Phase 2.2)
   - **Tier 3 — Utilities (installed as needed):**
-    - `picqer/php-barcode-generator` — barcode SVG/PNG generation (Phase 2.2)
-    - `simplesoftwareio/simple-qrcode` — receipt verification QR codes (Phase 3.3)
-    - `dedoc/scramble` — auto-generate OpenAPI spec from API routes + Data classes (Phase 12.5)
-    - `spatie/laravel-settings` — typed settings groups with DB storage (Phase 10.1)
-    - `spatie/laravel-backup` — scheduled PostgreSQL + file backups to S3 (Phase 14.3)
-    - `spatie/laravel-sluggable` — auto-slug generation for products, categories (Phase 2.2)
-    - `kreait/laravel-firebase` + `laravel-notification-channels/fcm` — FCM push notifications (Phase 7.1)
-    - `samuelmwangiw/africastalking-laravel` — Africa's Talking SMS for Ghana (Phase 7.1)
-    - `laravel-notification-channels/twilio` — SMS fallback for international (Phase 7.1)
-- Shared tooling:
-  - PHPStan (level 8) for static analysis
-  - Pint for code style
-  - Pest for testing
-  - GitHub Actions CI pipeline
+    - [ ] `picqer/php-barcode-generator` — barcode SVG/PNG generation (Phase 2.2)
+    - [ ] `simplesoftwareio/simple-qrcode` — receipt verification QR codes (Phase 3.3)
+    - [ ] `dedoc/scramble` — auto-generate OpenAPI spec from API routes + Data classes (Phase 12.5)
+    - [ ] `spatie/laravel-settings` — typed settings groups with DB storage (Phase 10.1)
+    - [ ] `spatie/laravel-backup` — scheduled PostgreSQL + file backups to S3 (Phase 14.3)
+    - [ ] `spatie/laravel-sluggable` — auto-slug generation for products, categories (Phase 2.2)
+    - [ ] `kreait/laravel-firebase` + `laravel-notification-channels/fcm` — FCM push notifications (Phase 7.1)
+    - [ ] `samuelmwangiw/africastalking-laravel` — Africa's Talking SMS for Ghana (Phase 7.1)
+    - [ ] `laravel-notification-channels/twilio` — SMS fallback for international (Phase 7.1)
+- [ ] Shared tooling: *(partially done)*
+  - [x] PHPStan (level 8) for static analysis *(installed, needs phpstan.neon config)*
+  - [x] Pint for code style *(installed, needs pint.json config)*
+  - [x] Pest for testing *(installed and configured with Feature/Unit suites)*
+  - [ ] GitHub Actions CI pipeline
 
 ### 1.2 Database Schema & Migrations
 
 Translate `DATABASE-SCHEMA.md` into Laravel migrations within the shared package.
 
-- Create all 52 application table migrations + framework/package tables with proper ordering (respecting FK dependencies)
-  - Framework tables (7): `users`, `sessions`, `cache`, `jobs`, `job_batches`, `failed_jobs`, `password_reset_tokens`
-  - Passport tables (5): `oauth_auth_codes`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_clients`, `oauth_personal_access_clients`
-  - Package-published tables (~8): `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions` (spatie/permission), `activity_log` (spatie/activitylog), `two_factor_authentications` (laragear/two-factor), `features` (laravel/pennant)
-- Define PostgreSQL enum types as Laravel enums (PHP 8.1 backed enums)
-  - `UserStatus`, `ShopStatus`, `BranchStatus`, `BranchType`, `MemberStatus`, `ShopRole`, `AdminRole`
-  - `ProductStatus`, `CategoryStatus`, `BatchStatus`, `BatchCondition`, `AdjustmentStatus`, `AdjustmentType`, `TransferStatus`, `UnitType`
-  - `WarehouseStatus`, `WarehouseType`
-  - `SupplierStatus`, `POStatus`, `PaymentTerms`, `GoodsReceiptStatus`
-  - `SaleStatus`, `SaleSource`, `PayMethod`, `DiscountType`, `CustomerType`
-  - `OrderType`, `KitchenOrderStatus`, `KitchenItemStatus`
-  - `PlanLifecycle`, `SubscriptionStatus`, `BillingStatus`, `PayType`
-  - `AdminTeamStatus`, `AnnouncementTarget`, `AnnouncementPriority`, `AnnouncementStatus`
-  - `AuditCategory`, `RiskLevel`, `InvestigationStatus`, `AnomalyStatus`
-  - `NotifCategory`, `NotifPriority`, `NotifChannel`, `NotifAction`
-  - `ExemptionUnit`, `ExpenseCategory`
-- Create all indexes per DATABASE-SCHEMA.md
-- Create all unique constraints and CHECK constraints
-- Set up Row-Level Security (RLS) policies for shop-scoped tables
-- Create database seeders:
-  - `PlanSeeder` — Free, Basic, Max plans with limits and features
-  - `DemoSeeder` — Translation of `demoData.ts` for development/testing
-  - `PermissionSeeder` — 36 shop permissions (including 4 bar/kitchen: `bar_access`, `bar_discount`, `kitchen_access`, `bar_analysis`) + 12 admin permissions
+- [ ] Create all 52 application table migrations + framework/package tables with proper ordering (respecting FK dependencies) *(0/52 app tables done)*
+  - [x] Framework tables (7): `users`, `sessions`, `cache`, `jobs`, `job_batches`, `failed_jobs`, `password_reset_tokens`
+  - [x] Passport tables (5): `oauth_auth_codes`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_clients`, `oauth_device_codes` *(published to apps/api/database/migrations/)*
+  - [x] Package-published tables (~8): `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions` (spatie/permission), `activity_log` (spatie/activitylog), `two_factor_authentications` (laragear/two-factor), `features` (laravel/pennant) *(all migrations published to apps/api/database/migrations/)*
+- [ ] Define PostgreSQL enum types as Laravel enums (PHP 8.1 backed enums) *(not started)*
+  - [ ] `UserStatus`, `ShopStatus`, `BranchStatus`, `BranchType`, `MemberStatus`, `ShopRole`, `AdminRole`
+  - [ ] `ProductStatus`, `CategoryStatus`, `BatchStatus`, `BatchCondition`, `AdjustmentStatus`, `AdjustmentType`, `TransferStatus`, `UnitType`
+  - [ ] `WarehouseStatus`, `WarehouseType`
+  - [ ] `SupplierStatus`, `POStatus`, `PaymentTerms`, `GoodsReceiptStatus`
+  - [ ] `SaleStatus`, `SaleSource`, `PayMethod`, `DiscountType`, `CustomerType`
+  - [ ] `OrderType`, `KitchenOrderStatus`, `KitchenItemStatus`
+  - [ ] `PlanLifecycle`, `SubscriptionStatus`, `BillingStatus`, `PayType`
+  - [ ] `AdminTeamStatus`, `AnnouncementTarget`, `AnnouncementPriority`, `AnnouncementStatus`
+  - [ ] `AuditCategory`, `RiskLevel`, `InvestigationStatus`, `AnomalyStatus`
+  - [ ] `NotifCategory`, `NotifPriority`, `NotifChannel`, `NotifAction`
+  - [ ] `ExemptionUnit`, `ExpenseCategory`
+- [ ] Create all indexes per DATABASE-SCHEMA.md
+- [ ] Create all unique constraints and CHECK constraints
+- [ ] Set up Row-Level Security (RLS) policies for shop-scoped tables
+- [ ] Create database seeders:
+  - [ ] `PlanSeeder` — Free, Basic, Max plans with limits and features
+  - [ ] `DemoSeeder` — Translation of `demoData.ts` for development/testing
+  - [ ] `PermissionSeeder` — 36 shop permissions (including 4 bar/kitchen: `bar_access`, `bar_discount`, `kitchen_access`, `bar_analysis`) + 12 admin permissions
 
 ### 1.3 Eloquent Models (Shared Package)
 
-Create all 52 models with relationships, scopes, accessors, and casts.
+Create all 52 models with relationships, scopes, accessors, and casts. *(not started — 0/52 models, depends on 1.2)*
 
-- **Core Tenant & Identity:**
-  - `User` — relationships: shops (via shop_members), adminUser, paymentMethods, notifications
-  - `Shop` — relationships: owner, branches, members, products, categories, units, suppliers, etc.
-  - `Branch` — relationships: shop, manager, members, tills, kitchenOrders
-  - `ShopMember` — relationships: user, shop, branchMembers; accessor for permissions
-  - `BranchMember` — relationships: member, branch
+- [ ] **Core Tenant & Identity:**
+  - [ ] `User` — relationships: shops (via shop_members), adminUser, paymentMethods, notifications *(basic stub exists in apps/api, needs full implementation in core package)*
+  - [ ] `Shop` — relationships: owner, branches, members, products, categories, units, suppliers, etc.
+  - [ ] `Branch` — relationships: shop, manager, members, tills, kitchenOrders
+  - [ ] `ShopMember` — relationships: user, shop, branchMembers; accessor for permissions
+  - [ ] `BranchMember` — relationships: member, branch
 
-- **Products & Inventory:**
-  - `Category`, `UnitOfMeasure`, `Product`, `Warehouse`, `ProductLocation`
-  - `Batch`, `StockAdjustment`, `StockTransfer`
-  - `PriceHistory` — tracks cost/selling price changes per product
-  - `GoodsReceipt`, `GoodsReceiptItem` — ad-hoc goods receiving outside PO workflow
+- [ ] **Products & Inventory:**
+  - [ ] `Category`, `UnitOfMeasure`, `Product`, `Warehouse`, `ProductLocation`
+  - [ ] `Batch`, `StockAdjustment`, `StockTransfer`
+  - [ ] `PriceHistory` — tracks cost/selling price changes per product
+  - [ ] `GoodsReceipt`, `GoodsReceiptItem` — ad-hoc goods receiving outside PO workflow
 
-- **Suppliers & PO:**
-  - `Supplier`, `SupplierProduct`, `PurchaseOrder`, `POItem`
+- [ ] **Suppliers & PO:**
+  - [ ] `Supplier`, `SupplierProduct`, `PurchaseOrder`, `POItem`
 
-- **Sales & POS:**
-  - `Customer`, `Till`, `TillPayment`, `Sale`, `SaleItem`, `SalePayment`
-  - `PosHeldOrder`, `PosHeldOrderItem` — retail POS held/parked carts
+- [ ] **Sales & POS:**
+  - [ ] `Customer`, `Till`, `TillPayment`, `Sale`, `SaleItem`, `SalePayment`
+  - [ ] `PosHeldOrder`, `PosHeldOrderItem` — retail POS held/parked carts
 
-- **Kitchen:**
-  - `KitchenOrder`, `KitchenOrderItem`, `HeldOrder`, `HeldOrderItem` — bar/kitchen held orders (distinct from retail POS held orders)
+- [ ] **Kitchen:**
+  - [ ] `KitchenOrder`, `KitchenOrderItem`, `HeldOrder`, `HeldOrderItem` — bar/kitchen held orders (distinct from retail POS held orders)
 
-- **Billing:**
-  - `Plan`, `Subscription`, `PaymentMethod`, `BillingRecord`
-  - `BillingExemption` — admin-granted exemptions (extra resources beyond plan limits)
+- [ ] **Billing:**
+  - [ ] `Plan`, `Subscription`, `PaymentMethod`, `BillingRecord`
+  - [ ] `BillingExemption` — admin-granted exemptions (extra resources beyond plan limits)
 
-- **Admin & Audit:**
-  - `AdminUser`, `Announcement`, `AuditEvent`, `Investigation`
-  - `InvestigationEvent`, `InvestigationNote`, `Anomaly`, `AnomalyEvent`
-  - `DetectionRule` — configurable anomaly detection rules
-  - `AdminExpense`, `AdminExpenseAttachment` — platform operational expenses
-  - `Milestone` — investor-facing platform milestones
+- [ ] **Admin & Audit:**
+  - [ ] `AdminUser`, `Announcement`, `AuditEvent`, `Investigation`
+  - [ ] `InvestigationEvent`, `InvestigationNote`, `Anomaly`, `AnomalyEvent`
+  - [ ] `DetectionRule` — configurable anomaly detection rules
+  - [ ] `AdminExpense`, `AdminExpenseAttachment` — platform operational expenses
+  - [ ] `Milestone` — investor-facing platform milestones
 
-- **Notifications:**
-  - `Notification`
-  - `NotificationPreference` — per-user per-category channel preferences
+- [ ] **Notifications:**
+  - [ ] `Notification`
+  - [ ] `NotificationPreference` — per-user per-category channel preferences
 
-- **Framework:**
-  - `Session` — database session storage (Laravel framework table)
+- [ ] **Framework:**
+  - [ ] `Session` — database session storage (Laravel framework table)
 
-- Global scopes:
-  - `ShopScope` — auto-filters by `app.current_shop_id` for all shop-scoped models
-- Traits:
-  - `BelongsToShop` — common shop_id relationship + scope
-  - `LogsActivity` (from `spatie/laravel-activitylog`) — replaces custom `HasAuditTrail`; auto-logs changes with before/after snapshots, causer, custom properties (IP, device, risk score)
-  - `HasStates` (from `spatie/laravel-model-states`) — on PurchaseOrder, Sale, KitchenOrder, KitchenOrderItem, StockTransfer, StockAdjustment, GoodsReceipt for declarative status lifecycles
-  - `HasRoles` (from `spatie/laravel-permission`) — on User/ShopMember with team scoping (team_id = shop_id)
-  - `InteractsWithMedia` (from `spatie/laravel-medialibrary`) — on Product, Shop, User for image/file uploads
-  - `HasUuid` — UUID primary key generation
-- Data classes (from `spatie/laravel-data`) — one class per entity replaces separate Form Request + API Resource:
-  - Each Data class handles validation (inferred from types + attributes), serialization, and TypeScript generation
-  - Examples: `ProductData`, `SaleData`, `PurchaseOrderData`, `CustomerData`, `ShopData`, etc.
+- [ ] Global scopes:
+  - [ ] `ShopScope` — auto-filters by `app.current_shop_id` for all shop-scoped models
+- [ ] Traits:
+  - [ ] `BelongsToShop` — common shop_id relationship + scope
+  - [ ] `LogsActivity` (from `spatie/laravel-activitylog`) — replaces custom `HasAuditTrail`; auto-logs changes with before/after snapshots, causer, custom properties (IP, device, risk score)
+  - [ ] `HasStates` (from `spatie/laravel-model-states`) — on PurchaseOrder, Sale, KitchenOrder, KitchenOrderItem, StockTransfer, StockAdjustment, GoodsReceipt for declarative status lifecycles
+  - [ ] `HasRoles` (from `spatie/laravel-permission`) — on User/ShopMember with team scoping (team_id = shop_id)
+  - [ ] `InteractsWithMedia` (from `spatie/laravel-medialibrary`) — on Product, Shop, User for image/file uploads
+  - [ ] `HasUuid` — UUID primary key generation
+- [ ] Data classes (from `spatie/laravel-data`) — one class per entity replaces separate Form Request + API Resource:
+  - [ ] Each Data class handles validation (inferred from types + attributes), serialization, and TypeScript generation
+  - [ ] Examples: `ProductData`, `SaleData`, `PurchaseOrderData`, `CustomerData`, `ShopData`, etc.
 
 ### 1.4 Authentication & Authorization
 
-- **Passport setup (API app):**
-  - Personal access tokens for mobile clients
-  - Authorization code grant for third-party integrations (Max plan API access)
-  - First-party SPA client for web app (authorization code grant with PKCE, no client secret)
-  - Token scopes matching plan features (e.g., `api-access` scope only for Max plan)
+- [ ] **Passport setup (API app):** *(package installed v13.6.0, config published, scopes + lifetimes defined — grant flows not yet wired)*
+  - [ ] Personal access tokens for mobile clients
+  - [ ] Authorization code grant for third-party integrations (Max plan API access)
+  - [ ] First-party SPA client for web app (authorization code grant with PKCE, no client secret)
+  - [x] Token scopes matching plan features *(14 scopes defined in AppServiceProvider)*
 
-- **Web app auth (Nuxt SPA via OAuth2 PKCE):**
-  - Authorization code grant with PKCE (Proof Key for Code Exchange) — no client secret required
-  - Nuxt auth plugin handles the OAuth2 flow: redirect to `/oauth/authorize`, exchange code for tokens
-  - Access token stored in memory (not localStorage) for XSS protection; refresh token in secure httpOnly cookie via API proxy endpoint
-  - Automatic token refresh via interceptor on 401 responses
-  - Nuxt route middleware (`auth`) redirects unauthenticated users to login
-  - Nuxt route middleware (`guest`) redirects authenticated users away from login/register
+- [ ] **Web app auth (Nuxt SPA via OAuth2 PKCE):** *(blocked — apps/web not created yet)*
+  - [ ] Authorization code grant with PKCE (Proof Key for Code Exchange) — no client secret required
+  - [ ] Nuxt auth plugin handles the OAuth2 flow: redirect to `/oauth/authorize`, exchange code for tokens
+  - [ ] Access token stored in memory (not localStorage) for XSS protection; refresh token in secure httpOnly cookie via API proxy endpoint
+  - [ ] Automatic token refresh via interceptor on 401 responses
+  - [ ] Nuxt route middleware (`auth`) redirects unauthenticated users to login
+  - [ ] Nuxt route middleware (`guest`) redirects authenticated users away from login/register
 
-- **Multi-tenancy middleware:**
-  - `SetCurrentShop` — resolves shop from route parameter or header, sets `app.current_shop_id` on DB connection
-  - `EnsureShopMember` — verifies the authenticated user is a member of the requested shop
-  - `EnsureBranchAccess` — verifies branch-level access where applicable
+- [ ] **Multi-tenancy middleware:** *(not started)*
+  - [ ] `SetCurrentShop` — resolves shop from route parameter or header, sets `app.current_shop_id` on DB connection
+  - [ ] `EnsureShopMember` — verifies the authenticated user is a member of the requested shop
+  - [ ] `EnsureBranchAccess` — verifies branch-level access where applicable
 
-- **RBAC via `spatie/laravel-permission` (team-scoped):**
-  - Enable `'teams' => true` in config with `team_foreign_key = shop_id` — roles are scoped per shop
-  - 4-level permission system modeled via permission granularity:
+- [ ] **RBAC via `spatie/laravel-permission` (team-scoped):** *(package configured, implementation not started)*
+  - [x] Enable `'teams' => true` in config with `team_foreign_key = shop_id` — roles are scoped per shop
+  - [x] Wildcard support: `products.*` grants all product sub-permissions *(enable_wildcard_permission = true)*
+  - [ ] 4-level permission system modeled via permission granularity:
     - `full` → assign all sub-permissions (e.g., `products.view`, `products.edit`, `products.delete`, `products.price`)
     - `partial` → subset of sub-permissions (e.g., `products.view`, `products.edit` only)
     - `view` → read-only sub-permission (e.g., `products.view` only)
     - `none` → no permissions assigned for that module
-  - Wildcard support: `products.*` grants all product sub-permissions
-  - Policy classes delegate to permission checks:
+  - [ ] Policy classes delegate to permission checks:
     - `ProductPolicy`, `SalePolicy`, `PurchaseOrderPolicy`, `InventoryPolicy`
     - `TeamPolicy`, `SettingsPolicy`, `WarehousePolicy`, `SupplierPolicy`, `CategoryPolicy`, `UnitPolicy`
     - `DashboardPolicy`, `BarKitchenPolicy`
-  - `AdminPolicy` — separate admin guard with 12 boolean admin permissions
-  - `isDecisionMaker` helper for plan limit enforcement:
+  - [ ] `AdminPolicy` — separate admin guard with 12 boolean admin permissions
+  - [ ] `isDecisionMaker` helper for plan limit enforcement:
     - Decision makers: roles with `isDecisionMaker = true` (owner, general_manager, manager)
     - Only decision makers are blocked by plan limits; non-decision-makers (salesperson, cashier, etc.) are never blocked
     - `PlanEnforcementService::canAdd()` returns `true` immediately for non-decision-maker roles
 
-- **Plan feature gating via `laravel/pennant`:**
-  - Define all 14 plan feature keys as Pennant features resolved from shop's active subscription:
+- [ ] **Plan feature gating via `laravel/pennant`:** *(package installed, 14 feature keys defined with placeholder resolvers — needs wiring to Plan model)*
+  - [x] Define all 14 plan feature keys as Pennant features resolved from shop's active subscription:
     - `pos`, `receipts`, `reports`, `barcode`, `purchaseOrders`, `stockTransfers`, `lowStockAlerts`, `twoFA`, `apiAccess`, `dataExport`, `customBranding`, `auditTrail`, `generalManager`, `support`
-  - Usage: `Feature::for($shop)->active('api-access')` replaces scattered `if ($plan->features->apiAccess)` checks
-  - Rich values supported: `Feature::for($shop)->value('support')` can return `'email'`, `'priority'`, or `false`
-  - Route middleware: `EnsureFeatureActive` gates entire route groups behind plan features
+  - [ ] Usage: `Feature::for($shop)->active('api-access')` replaces scattered `if ($plan->features->apiAccess)` checks
+  - [ ] Rich values supported: `Feature::for($shop)->value('support')` can return `'email'`, `'priority'`, or `false`
+  - [ ] Route middleware: `EnsureFeatureActive` gates entire route groups behind plan features
 
-- **Admin authentication:**
-  - Separate guard for admin portal
-  - 2FA enforcement via `laragear/two-factor` (TOTP with recovery codes, attempt throttling, migrations included)
+- [x] **Admin authentication:** *(guards and providers configured)*
+  - [x] Separate guard for admin portal *(admin guard + admin_users provider in config/auth.php)*
+  - [ ] 2FA enforcement via `laragear/two-factor` *(package installed v4.0.0, config: issuer=ShopChain, 8 recovery codes — enforcement logic not yet wired)*
 
-### 1.5 Multi-Tenancy Infrastructure
+### 1.5 Multi-Tenancy Infrastructure *(not started — depends on 1.2–1.4)*
 
-- Middleware stack for shop-scoped routes:
+- [ ] Middleware stack for shop-scoped routes:
   ```
   auth → set-current-shop → ensure-shop-member → [ensure-branch-access]
   ```
-- Database-level RLS policies applied via migration (matches DATABASE-SCHEMA.md §RLS)
-- Application-level tenant scoping via Eloquent global scopes as a safety net
-- Tenant resolution from:
-  - Route parameter (`/api/v1/shops/{shop}/products`)
-  - Request header (`X-Shop-Id`) for mobile convenience
-- Plan enforcement service:
-  - `PlanEnforcementService::canAdd(shop, resourceKey)` — mirrors the `canAdd()` logic from the shop Pinia store
-  - `PlanEnforcementService::computeUsage(shop)` — live usage computation
-  - Middleware `EnforcePlanLimits` for write operations
+- [ ] Database-level RLS policies applied via migration (matches DATABASE-SCHEMA.md §RLS)
+- [ ] Application-level tenant scoping via Eloquent global scopes as a safety net
+- [ ] Tenant resolution from:
+  - [ ] Route parameter (`/api/v1/shops/{shop}/products`)
+  - [ ] Request header (`X-Shop-Id`) for mobile convenience
+- [ ] Plan enforcement service:
+  - [ ] `PlanEnforcementService::canAdd(shop, resourceKey)` — mirrors the `canAdd()` logic from the shop Pinia store
+  - [ ] `PlanEnforcementService::computeUsage(shop)` — live usage computation
+  - [ ] Middleware `EnforcePlanLimits` for write operations
 
 ---
 

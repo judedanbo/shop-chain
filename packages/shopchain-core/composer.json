@@ -5,8 +5,14 @@
     "license": "proprietary",
     "require": {
         "php": "^8.2",
+        "illuminate/database": "^12.0",
         "illuminate/support": "^12.0",
-        "illuminate/database": "^12.0"
+        "laravel/pennant": "^1.0",
+        "spatie/laravel-activitylog": "^4.0",
+        "spatie/laravel-data": "^4.0",
+        "spatie/laravel-model-states": "^2.0",
+        "spatie/laravel-permission": "^6.0",
+        "spatie/laravel-query-builder": "^6.0"
     },
     "autoload": {
         "psr-4": {
