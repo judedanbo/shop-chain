@@ -110,7 +110,7 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
   - [x] Verify test suite *(2/2 Pest tests pass)*
   - [ ] Configure API-only middleware stack (no sessions, no CSRF)
   - [x] API versioning via route prefix (`/api/v1/`)
-  - [ ] Configure rate limiting (per-user, per-IP)
+  - [x] Configure rate limiting (per-user, per-IP) *(auth: 5/min per IP, two-factor: 5/min per IP — defined in AppServiceProvider)*
 - [x] Create `apps/web/` — Nuxt 4 standalone application *(verified: typecheck passes, production build succeeds, dev server responds)*
   - [x] Initialize with manual scaffolding (Nuxt 4 app dir convention)
   - [x] Install core modules: `@nuxt/ui`, `@pinia/nuxt`, `@vueuse/nuxt`
@@ -196,9 +196,9 @@ Translate `DATABASE-SCHEMA.md` into Laravel migrations within the shared package
   - [ ] `DemoSeeder` — Translation of `demoData.ts` for development/testing *(deferred to later phase)*
   - [x] `PermissionSeeder` — 48 permissions (36 shop + 12 admin), 12 shop roles with permission assignments (167 role-permission mappings)
 
-### 1.3 Eloquent Models (Shared Package)
+### 1.3 Eloquent Models (Shared Package) ✅
 
-Create all 52 models with relationships, scopes, accessors, and casts. *(not started — 0/52 models, depends on 1.2)*
+Create all 52 models with relationships, scopes, accessors, and casts. *(complete — 52 models, traits, scopes, and casts in place)*
 
 - [ ] **Core Tenant & Identity:**
   - [ ] `User` — relationships: shops (via shop_members), adminUser, paymentMethods, notifications *(basic stub exists in apps/api, needs full implementation in core package)*
@@ -254,15 +254,49 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(not sta
   - [ ] Each Data class handles validation (inferred from types + attributes), serialization, and TypeScript generation
   - [ ] Examples: `ProductData`, `SaleData`, `PurchaseOrderData`, `CustomerData`, `ShopData`, etc.
 
-### 1.4 Authentication & Authorization
+### 1.4 Authentication & Authorization ✅
 
-- [ ] **Passport setup (API app):** *(package installed v13.6.0, config published, scopes + lifetimes defined — grant flows not yet wired)*
-  - [ ] Personal access tokens for mobile clients
-  - [ ] Authorization code grant for third-party integrations (Max plan API access)
-  - [ ] First-party SPA client for web app (authorization code grant with PKCE, no client secret)
+- [x] **Passport setup (API app):** *(password grant enabled, password client config added, token issuance trait implemented)*
+  - [ ] Personal access tokens for mobile clients *(deferred — mobile Phase 13)*
+  - [ ] Authorization code grant for third-party integrations (Max plan API access) *(deferred — Phase 8)*
+  - [x] First-party SPA client via password grant *(LoginController proxies credentials internally; `IssuesPassportTokens` trait handles token issuance/refresh)*
   - [x] Token scopes matching plan features *(14 scopes defined in AppServiceProvider)*
+  - [x] Password grant enabled *(Passport::enablePasswordGrant() in AppServiceProvider)*
+  - [x] Password client config *(config/passport.php: password_client.id/secret from env)*
+  - [x] Rate limiting on auth endpoints *(auth: 5/min, two-factor: 5/min per IP)*
 
-- [ ] **Web app auth (Nuxt SPA via OAuth2 PKCE):** *(blocked — apps/web not created yet)*
+- [x] **API auth controllers & routes (14 endpoints):**
+  - [x] `POST /auth/register` — register + shop + membership + default branch + role assignment in DB transaction → 201 + tokens
+  - [x] `POST /auth/login` — credential validation with 2FA branching (cache-based temp token, 10-min TTL)
+  - [x] `POST /auth/two-factor/verify` — pull from cache → validate TOTP → issue tokens (unauthenticated)
+  - [x] `POST /auth/refresh` — proxy to Passport refresh_token grant
+  - [x] `POST /auth/logout` — revoke access + refresh tokens, expire session
+  - [x] `GET /auth/me` — user profile + shop memberships + 2FA status + admin status
+  - [x] `POST /auth/two-factor/enable` — create TOTP auth → QR URI + secret + recovery codes
+  - [x] `POST /auth/two-factor/confirm` — confirm with TOTP code → activates 2FA
+  - [x] `DELETE /auth/two-factor` — disable 2FA (requires password)
+  - [x] `GET /auth/two-factor/recovery-codes` — get current codes
+  - [x] `POST /auth/two-factor/recovery-codes` — regenerate codes
+  - [x] `POST /admin/auth/login` — admin login with admin status + 2FA verification
+  - [x] `POST /admin/auth/two-factor/verify` — admin 2FA verify + admin check
+  - [x] `POST /admin/auth/logout` — admin logout (auth:api + active_user + admin middleware)
+
+- [x] **Middleware (5 aliases registered in bootstrap/app.php):**
+  - [x] `EnsureActiveUser` — blocks non-active users (403), throttled `last_active_at` update (>5 min stale)
+  - [x] `EnsureAdmin` — verifies `adminUser` relationship exists and is active
+  - [x] `role` → Spatie RoleMiddleware
+  - [x] `permission` → Spatie PermissionMiddleware
+  - [x] `role_or_permission` → Spatie RoleOrPermissionMiddleware
+
+- [x] **User model auth traits wired:**
+  - [x] `HasApiTokens` (Passport) — `tokens()`, `createToken()`, `tokenCan()`
+  - [x] `TwoFactorAuthentication` (Laragear) — `hasTwoFactorEnabled()`, `createTwoFactorAuth()`, `validateTwoFactorCode()`
+  - [x] `HasRoles` (Spatie) — `assignRole()`, `hasRole()`, `hasPermissionTo()`
+  - [x] `validateForPassportPasswordGrant()` — rejects non-active users at token issuance
+
+- [x] **Form requests:** LoginRequest, RegisterRequest, TwoFactorVerifyRequest
+
+- [ ] **Web app auth (Nuxt SPA via OAuth2 PKCE):** *(blocked — Nuxt auth plugin not yet built)*
   - [ ] Authorization code grant with PKCE (Proof Key for Code Exchange) — no client secret required
   - [ ] Nuxt auth plugin handles the OAuth2 flow: redirect to `/oauth/authorize`, exchange code for tokens
   - [ ] Access token stored in memory (not localStorage) for XSS protection; refresh token in secure httpOnly cookie via API proxy endpoint
@@ -270,14 +304,15 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(not sta
   - [ ] Nuxt route middleware (`auth`) redirects unauthenticated users to login
   - [ ] Nuxt route middleware (`guest`) redirects authenticated users away from login/register
 
-- [ ] **Multi-tenancy middleware:** *(not started)*
+- [ ] **Multi-tenancy middleware:** *(deferred to Phase 1.5)*
   - [ ] `SetCurrentShop` — resolves shop from route parameter or header, sets `app.current_shop_id` on DB connection
   - [ ] `EnsureShopMember` — verifies the authenticated user is a member of the requested shop
   - [ ] `EnsureBranchAccess` — verifies branch-level access where applicable
 
-- [ ] **RBAC via `spatie/laravel-permission` (team-scoped):** *(package configured, implementation not started)*
+- [ ] **RBAC via `spatie/laravel-permission` (team-scoped):** *(package configured, HasRoles trait wired, role assignment in register flow — policies not yet implemented)*
   - [x] Enable `'teams' => true` in config with `team_foreign_key = shop_id` — roles are scoped per shop
   - [x] Wildcard support: `products.*` grants all product sub-permissions *(enable_wildcard_permission = true)*
+  - [x] Team-scoped role assignment in registration *(setPermissionsTeamId + assignRole('owner'))*
   - [ ] 4-level permission system modeled via permission granularity:
     - `full` → assign all sub-permissions (e.g., `products.view`, `products.edit`, `products.delete`, `products.price`)
     - `partial` → subset of sub-permissions (e.g., `products.view`, `products.edit` only)
@@ -300,9 +335,10 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(not sta
   - [ ] Rich values supported: `Feature::for($shop)->value('support')` can return `'email'`, `'priority'`, or `false`
   - [ ] Route middleware: `EnsureFeatureActive` gates entire route groups behind plan features
 
-- [x] **Admin authentication:** *(guards and providers configured)*
+- [x] **Admin authentication:** *(fully wired — guards, providers, controllers, routes, 2FA)*
   - [x] Separate guard for admin portal *(admin guard + admin_users provider in config/auth.php)*
-  - [ ] 2FA enforcement via `laragear/two-factor` *(package installed v4.0.0, config: issuer=ShopChain, 8 recovery codes — enforcement logic not yet wired)*
+  - [x] Admin auth controller with login/2FA verify/logout *(Admin\AuthController with EnsureAdmin middleware)*
+  - [x] 2FA enforcement via `laragear/two-factor` *(cache-based 2FA flow with admin-prefixed tokens, last_login_at tracking)*
 
 ### 1.5 Multi-Tenancy Infrastructure *(not started — depends on 1.2–1.4)*
 
@@ -1210,7 +1246,7 @@ Phase 14: Infrastructure ──── Phase 1 + ongoing ─────┘
 
 | Module                                             | Endpoints |
 | -------------------------------------------------- | --------- |
-| Authentication                                     | 9         |
+| Authentication                                     | 14        |
 | Account & Profile                                  | 6         |
 | Shops & Branches                                   | 10        |
 | Products, Batches & Price History                  | 14        |
@@ -1224,4 +1260,4 @@ Phase 14: Infrastructure ──── Phase 1 + ongoing ─────┘
 | Billing, Subscriptions & Exemptions                | 10        |
 | Admin (all groups incl. investors, forensics)      | ~50       |
 | Mobile-specific                                    | 4         |
-| **Total**                                          | **~177**  |
+| **Total**                                          | **~182**  |
