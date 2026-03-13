@@ -100,12 +100,18 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
 - [x] Create `packages/shopchain-core/` as a local Composer package
   - [x] Set up `composer.json` with PSR-4 autoloading
   - [x] Configure package service provider for model/migration/config registration
-- [ ] Create `apps/api/` — Laravel 12 API application *(partial — app exists, middleware/rate-limiting incomplete)*
+- [ ] Create `apps/api/` — Laravel 12 API application *(partial — app bootstraps, middleware/rate-limiting/CORS incomplete)*
   - [x] Install Laravel Passport *(v13.6.0 — publishes migration tables: `oauth_auth_codes`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_clients`, `oauth_device_codes`)*
+  - [x] Generate Passport encryption keys *(oauth-private.key, oauth-public.key)*
+  - [x] Docker volume mount for `shopchain/core` symlink resolution *(compose.yaml: `../../packages:/var/packages`)*
+  - [x] Run all migrations *(14 migrations: 3 framework, 1 Pennant, 5 Passport, 1 2FA, 3 activitylog, 1 permission)*
+  - [x] Verify application bootstrap *(Laravel 12.54.1, PHP 8.5.3, all service providers load)*
+  - [x] Verify all endpoints respond *(`/` → ShopChain v1.0.0, `/api/v1/health` → ok)*
+  - [x] Verify test suite *(2/2 Pest tests pass)*
   - [ ] Configure API-only middleware stack (no sessions, no CSRF)
   - [x] API versioning via route prefix (`/api/v1/`)
   - [ ] Configure rate limiting (per-user, per-IP)
-- [x] Create `apps/web/` — Nuxt 4 standalone application
+- [x] Create `apps/web/` — Nuxt 4 standalone application *(verified: typecheck passes, production build succeeds, dev server responds)*
   - [x] Initialize with manual scaffolding (Nuxt 4 app dir convention)
   - [x] Install core modules: `@nuxt/ui`, `@pinia/nuxt`, `@vueuse/nuxt`
   - [x] Install `laravel-echo` + `pusher-js` for Reverb WebSocket client
@@ -144,7 +150,7 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
 - [ ] Shared tooling: *(partially done)*
   - [x] PHPStan (level 8) for static analysis *(installed, needs phpstan.neon config)*
   - [x] Pint for code style *(installed, needs pint.json config)*
-  - [x] Pest for testing *(installed and configured with Feature/Unit suites)*
+  - [x] Pest for testing *(installed and configured with Feature/Unit suites — 2/2 tests passing)*
   - [ ] GitHub Actions CI pipeline
 
 ### 1.2 Database Schema & Migrations
