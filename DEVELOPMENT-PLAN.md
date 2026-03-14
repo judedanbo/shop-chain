@@ -475,40 +475,42 @@ Build the domain logic and API endpoints for the primary business operations. Ea
   - [x] Permission-based access: viewer can view only, inventory_officer can adjust/transfer but not approve, owner/manager have full access
 - **Deferred items:**
   - [ ] `StockAdjusted`/`StockTransferred`/`LowStockDetected` events *(deferred to Phase 7 — no listeners exist yet)*
-  - [ ] State machines via `spatie/laravel-model-states` *(deferred to Phase 2.5 where PO lifecycle has 7 states)*
+  - [ ] State machines via `spatie/laravel-model-states` *(not adopted — explicit service methods + status checks sufficient for all Phase 2 modules)*
   - [ ] Batch tracking FEFO integration *(batch status computation, FEFO consumption — deferred to Phase 3.1 POS stock decrement)*
   - [ ] Auto-computed product stock status from ProductLocation totals *(deferred)*
 
-### 2.5 Suppliers & Purchase Orders
+### 2.5 Suppliers & Purchase Orders ✅
 
-- **Services:** `SupplierService`, `PurchaseOrderService`
-- **Supplier endpoints:**
-  - `GET/POST/PATCH/DELETE /shops/{shop}/suppliers/{supplier?}`
-  - Supplier-product linking with unit costs and lead times
-- **PO endpoints:**
-  - `GET/POST /shops/{shop}/purchase-orders`
-  - `GET/PATCH /shops/{shop}/purchase-orders/{po}`
-  - `POST /shops/{shop}/purchase-orders/{po}/approve|receive|cancel`
-- **PO lifecycle** (state machine via `spatie/laravel-model-states`):
-
-  ```
-  draft → pending → approved → shipped → partial → received
-                                    └→ cancelled
-  ```
-
-  - 7 state classes: `Draft`, `Pending`, `Approved`, `Shipped`, `PartialReceived`, `Received`, `Cancelled`
-  - Transition classes with side effects:
-    - `ApprovePO` — fires `POApproved` event, notifies requester
-    - `ReceivePO` — creates batches for batch-tracked products, updates stock quantities, tracks received vs ordered per line item
-    - `CancelPO` — validates cancellable state, fires `POCancelled` event
-  - `$po->status->canTransitionTo(Approved::class)` — guards UI and API
-  - Cancel allowed from any pre-received status
-
-- **Business rules:**
-  - PO total = Σ(item.qty × item.unitCost)
-  - Partial receive when receivedQty < orderedQty for any item
-  - Supplier rating (1.0–5.0)
-  - Plan limit enforcement for supplier count
+- [x] **Services:** `SupplierService` *(create, update, delete with purchase-orders-exist guard, linkProduct via SupplierProduct::updateOrCreate, unlinkProduct)*, `PurchaseOrderService` *(createPO with items in transaction, submitPO Draft→Pending, approvePO Pending→Approved with approved_by, markShipped Approved→Shipped, receivePO Shipped|Partial→Partial|Received with ProductLocation updates + Batch creation, cancelPO with received/partial guard)*
+- [x] **Policies:** `SupplierPolicy` *(viewAny/view → suppliers.view, create/update → suppliers.edit, delete → suppliers.delete)*, `PurchaseOrderPolicy` *(viewAny/view → purchase_orders.view, create/update → purchase_orders.create, approve → purchase_orders.approve)*
+- [x] **Resources:** `SupplierResource` (with whenCounted products/purchaseOrders, whenLoaded products → SupplierProductResource), `SupplierProductResource` (id, name, sku + pivot data), `PurchaseOrderResource` (with whenLoaded supplier/warehouse/creator/approver/items, whenCounted items), `POItemResource` (with whenLoaded product/unit)
+- [x] **Form Requests:** Supplier (Create/Update — name unique per shop, SupplierStatus enum), LinkSupplierProduct (product_id shop-scoped, unit_cost, lead_time_days, is_preferred), PurchaseOrder (Create with items array — supplier_id/warehouse_id shop-scoped, PaymentTerms enum), ReceivePurchaseOrder (items with po_item_id, quantity_received, batch_number)
+- [x] **Factories:** `SupplierFactory` (state: inactive), `PurchaseOrderFactory` (states: pending, approved, shipped, partial, received, cancelled)
+- [x] **Endpoints (16):**
+  - `GET/POST /shops/{shop}/suppliers`, `GET/PUT|PATCH/DELETE /shops/{shop}/suppliers/{supplier}`
+  - `GET/POST /shops/{shop}/suppliers/{supplier}/products`, `DELETE /shops/{shop}/suppliers/{supplier}/products/{product}`
+  - `GET/POST /shops/{shop}/purchase-orders`, `GET /shops/{shop}/purchase-orders/{po}`
+  - `POST /shops/{shop}/purchase-orders/{po}/submit|approve|ship|receive|cancel`
+  - Route model binding: `{po}` → PurchaseOrder
+  - Supplier creation enforces plan limit via `enforce_plan:suppliers` middleware
+- [x] **Tests:** SupplierCrudTest (12), PurchaseOrderTest (16) — 28 tests passing
+- [x] **Business rules:**
+  - [x] No state machines — PO lifecycle managed via explicit service methods + status checks (consistent with Phases 2.1-2.4)
+  - [x] No events — POApproved/POCancelled deferred to Phase 7
+  - [x] Dedicated POST endpoints for each PO lifecycle transition (submit/approve/ship/receive/cancel) with per-action authorization
+  - [x] Receive updates ProductLocation via firstOrCreate + increment (same pattern as GoodsReceiptService)
+  - [x] Receive creates Batch records for batch-tracked products with source_po_id linkage
+  - [x] Receive caps quantity_received at quantity_ordered per item; all items fully received → Received, else → Partial
+  - [x] Cancel blocked for Received/Partial status (stock already updated)
+  - [x] Supplier deletion blocked when purchase orders exist
+  - [x] Plan limit enforcement for supplier count (free=5, basic=50, max=unlimited)
+  - [x] Supplier-product linking via SupplierProduct model (UUID pivot table — uses model directly, not belongsToMany attach/sync)
+  - [x] QueryBuilder filtering on list endpoints (status, supplier_id, warehouse_id, name partial)
+  - [x] Permission-based access: viewer can view only, inventory_officer cannot approve POs, owner/manager have full access
+- **Deferred items:**
+  - [ ] `POApproved`/`POCancelled` events *(deferred to Phase 7 — no listeners exist yet)*
+  - [ ] State machines via `spatie/laravel-model-states` *(7 states manageable with service methods + explicit checks)*
+  - [ ] PO total computation Σ(item.qty × item.unitCost) *(no total column in migration; compute on read if needed)*
 
 ### 2.6 Warehouse Management ✅
 

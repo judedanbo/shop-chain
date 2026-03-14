@@ -9,13 +9,16 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\GoodsReceiptController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\StockTransferController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UnitOfMeasureController;
 use App\Http\Controllers\WarehouseController;
 use Illuminate\Support\Facades\Route;
 use ShopChain\Core\Models\GoodsReceipt;
+use ShopChain\Core\Models\PurchaseOrder;
 use ShopChain\Core\Models\StockAdjustment;
 use ShopChain\Core\Models\StockTransfer;
 
@@ -98,6 +101,7 @@ Route::prefix('v1')->group(function () {
             Route::model('adjustment', StockAdjustment::class);
             Route::model('transfer', StockTransfer::class);
             Route::model('receipt', GoodsReceipt::class);
+            Route::model('po', PurchaseOrder::class);
 
             // Warehouses
             Route::apiResource('warehouses', WarehouseController::class)->except('store');
@@ -122,6 +126,26 @@ Route::prefix('v1')->group(function () {
             Route::post('goods-receipts', [GoodsReceiptController::class, 'store']);
             Route::get('goods-receipts/{receipt}', [GoodsReceiptController::class, 'show']);
             Route::patch('goods-receipts/{receipt}', [GoodsReceiptController::class, 'update']);
+
+            // Suppliers
+            Route::apiResource('suppliers', SupplierController::class)->except('store');
+            Route::post('suppliers', [SupplierController::class, 'store'])
+                ->middleware('enforce_plan:suppliers');
+
+            // Supplier-Product sub-resources
+            Route::get('suppliers/{supplier}/products', [SupplierController::class, 'products']);
+            Route::post('suppliers/{supplier}/products', [SupplierController::class, 'linkProduct']);
+            Route::delete('suppliers/{supplier}/products/{product}', [SupplierController::class, 'unlinkProduct']);
+
+            // Purchase Orders
+            Route::get('purchase-orders', [PurchaseOrderController::class, 'index']);
+            Route::post('purchase-orders', [PurchaseOrderController::class, 'store']);
+            Route::get('purchase-orders/{po}', [PurchaseOrderController::class, 'show']);
+            Route::post('purchase-orders/{po}/submit', [PurchaseOrderController::class, 'submit']);
+            Route::post('purchase-orders/{po}/approve', [PurchaseOrderController::class, 'approve']);
+            Route::post('purchase-orders/{po}/ship', [PurchaseOrderController::class, 'ship']);
+            Route::post('purchase-orders/{po}/receive', [PurchaseOrderController::class, 'receive']);
+            Route::post('purchase-orders/{po}/cancel', [PurchaseOrderController::class, 'cancel']);
         });
 
     // Admin auth routes

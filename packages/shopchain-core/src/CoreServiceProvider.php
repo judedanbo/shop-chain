@@ -12,14 +12,18 @@ use ShopChain\Core\Models\GoodsReceipt;
 use ShopChain\Core\Models\StockAdjustment;
 use ShopChain\Core\Models\StockTransfer;
 use ShopChain\Core\Models\UnitOfMeasure;
+use ShopChain\Core\Models\PurchaseOrder;
+use ShopChain\Core\Models\Supplier;
 use ShopChain\Core\Models\Warehouse;
 use ShopChain\Core\Policies\BranchPolicy;
 use ShopChain\Core\Policies\CategoryPolicy;
 use ShopChain\Core\Policies\GoodsReceiptPolicy;
 use ShopChain\Core\Policies\ProductPolicy;
+use ShopChain\Core\Policies\PurchaseOrderPolicy;
 use ShopChain\Core\Policies\ShopPolicy;
 use ShopChain\Core\Policies\StockAdjustmentPolicy;
 use ShopChain\Core\Policies\StockTransferPolicy;
+use ShopChain\Core\Policies\SupplierPolicy;
 use ShopChain\Core\Policies\UnitOfMeasurePolicy;
 use ShopChain\Core\Policies\WarehousePolicy;
 
@@ -52,6 +56,8 @@ class CoreServiceProvider extends ServiceProvider
         Gate::policy(StockAdjustment::class, StockAdjustmentPolicy::class);
         Gate::policy(StockTransfer::class, StockTransferPolicy::class);
         Gate::policy(GoodsReceipt::class, GoodsReceiptPolicy::class);
+        Gate::policy(Supplier::class, SupplierPolicy::class);
+        Gate::policy(PurchaseOrder::class, PurchaseOrderPolicy::class);
 
         if ($this->app->runningInConsole()) {
             $this->publishes([
