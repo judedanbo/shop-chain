@@ -19,6 +19,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'active_user' => \App\Http\Middleware\EnsureActiveUser::class,
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
+            'set_shop' => \App\Http\Middleware\SetCurrentShop::class,
+            'shop_member' => \App\Http\Middleware\EnsureShopMember::class,
+            'branch_access' => \App\Http\Middleware\EnsureBranchAccess::class,
+            'enforce_plan' => \App\Http\Middleware\EnforcePlanLimits::class,
+            'feature' => \App\Http\Middleware\EnsureFeatureActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

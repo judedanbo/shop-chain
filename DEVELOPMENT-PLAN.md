@@ -304,10 +304,10 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(complet
   - [ ] Nuxt route middleware (`auth`) redirects unauthenticated users to login
   - [ ] Nuxt route middleware (`guest`) redirects authenticated users away from login/register
 
-- [ ] **Multi-tenancy middleware:** *(deferred to Phase 1.5)*
-  - [ ] `SetCurrentShop` — resolves shop from route parameter or header, sets `app.current_shop_id` on DB connection
-  - [ ] `EnsureShopMember` — verifies the authenticated user is a member of the requested shop
-  - [ ] `EnsureBranchAccess` — verifies branch-level access where applicable
+- [x] **Multi-tenancy middleware:** *(implemented in Phase 1.5)*
+  - [x] `SetCurrentShop` — resolves shop from route parameter, sets `app.current_shop_id` on DB connection (container + PostgreSQL `set_config` + Spatie team scoping), Octane-safe cleanup
+  - [x] `EnsureShopMember` — verifies the authenticated user is an active member of the requested shop, stores `ShopMember` on request attributes
+  - [x] `EnsureBranchAccess` — verifies branch-level access; decision-makers (owner/GM/manager) bypass
 
 - [ ] **RBAC via `spatie/laravel-permission` (team-scoped):** *(package configured, HasRoles trait wired, role assignment in register flow — policies not yet implemented)*
   - [x] Enable `'teams' => true` in config with `team_foreign_key = shop_id` — roles are scoped per shop
@@ -323,38 +323,45 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(complet
     - `TeamPolicy`, `SettingsPolicy`, `WarehousePolicy`, `SupplierPolicy`, `CategoryPolicy`, `UnitPolicy`
     - `DashboardPolicy`, `BarKitchenPolicy`
   - [ ] `AdminPolicy` — separate admin guard with 12 boolean admin permissions
-  - [ ] `isDecisionMaker` helper for plan limit enforcement:
+  - [x] `isDecisionMaker` helper for plan limit enforcement: *(implemented in PlanEnforcementService + EnsureBranchAccess)*
     - Decision makers: roles with `isDecisionMaker = true` (owner, general_manager, manager)
     - Only decision makers are blocked by plan limits; non-decision-makers (salesperson, cashier, etc.) are never blocked
     - `PlanEnforcementService::canAdd()` returns `true` immediately for non-decision-maker roles
 
-- [ ] **Plan feature gating via `laravel/pennant`:** *(package installed, 14 feature keys defined with placeholder resolvers — needs wiring to Plan model)*
+- [x] **Plan feature gating via `laravel/pennant`:** *(fully wired — resolvers read from `$shop->activePlan->features` with key mapping; `EnsureFeatureActive` middleware registered)*
   - [x] Define all 14 plan feature keys as Pennant features resolved from shop's active subscription:
     - `pos`, `receipts`, `reports`, `barcode`, `purchaseOrders`, `stockTransfers`, `lowStockAlerts`, `twoFA`, `apiAccess`, `dataExport`, `customBranding`, `auditTrail`, `generalManager`, `support`
-  - [ ] Usage: `Feature::for($shop)->active('api-access')` replaces scattered `if ($plan->features->apiAccess)` checks
-  - [ ] Rich values supported: `Feature::for($shop)->value('support')` can return `'email'`, `'priority'`, or `false`
-  - [ ] Route middleware: `EnsureFeatureActive` gates entire route groups behind plan features
+  - [x] Usage: `Feature::for($shop)->active('api-access')` replaces scattered `if ($plan->features->apiAccess)` checks
+  - [x] Rich values supported: `Feature::for($shop)->value('support')` can return `'email'`, `'priority'`, or `false`
+  - [x] Route middleware: `EnsureFeatureActive` gates entire route groups behind plan features
 
 - [x] **Admin authentication:** *(fully wired — guards, providers, controllers, routes, 2FA)*
   - [x] Separate guard for admin portal *(admin guard + admin_users provider in config/auth.php)*
   - [x] Admin auth controller with login/2FA verify/logout *(Admin\AuthController with EnsureAdmin middleware)*
   - [x] 2FA enforcement via `laragear/two-factor` *(cache-based 2FA flow with admin-prefixed tokens, last_login_at tracking)*
 
-### 1.5 Multi-Tenancy Infrastructure *(not started — depends on 1.2–1.4)*
+### 1.5 Multi-Tenancy Infrastructure ✅
 
-- [ ] Middleware stack for shop-scoped routes:
+- [x] Middleware stack for shop-scoped routes: *(5 middleware aliases registered in bootstrap/app.php: `set_shop`, `shop_member`, `branch_access`, `enforce_plan`, `feature`)*
   ```
-  auth → set-current-shop → ensure-shop-member → [ensure-branch-access]
+  auth → active_user → set_shop → shop_member → [branch_access] → [enforce_plan:resource] → [feature:name]
   ```
-- [ ] Database-level RLS policies applied via migration (matches DATABASE-SCHEMA.md §RLS)
-- [ ] Application-level tenant scoping via Eloquent global scopes as a safety net
-- [ ] Tenant resolution from:
-  - [ ] Route parameter (`/api/v1/shops/{shop}/products`)
-  - [ ] Request header (`X-Shop-Id`) for mobile convenience
-- [ ] Plan enforcement service:
-  - [ ] `PlanEnforcementService::canAdd(shop, resourceKey)` — mirrors the `canAdd()` logic from the shop Pinia store
-  - [ ] `PlanEnforcementService::computeUsage(shop)` — live usage computation
-  - [ ] Middleware `EnforcePlanLimits` for write operations
+- [x] Database-level RLS policies applied via migration (matches DATABASE-SCHEMA.md §RLS) *(done in Phase 1.2)*
+- [x] Application-level tenant scoping via Eloquent global scopes as a safety net *(ShopScope + BelongsToShop trait from Phase 1.3)*
+- [x] Tenant resolution from:
+  - [x] Route parameter (`/api/v1/shops/{shop}/products`) *(route model binding resolves Shop instance)*
+  - [ ] Request header (`X-Shop-Id`) for mobile convenience *(deferred to Phase 13)*
+- [x] `SetCurrentShop` middleware — dual-layer tenant context: *(Laravel container `current_shop_id` + PostgreSQL `set_config('app.current_shop_id')` + Spatie `setPermissionsTeamId`; Octane-safe cleanup)*
+- [x] `EnsureShopMember` middleware — verifies active shop membership via `withoutGlobalScopes()` query; stores `ShopMember` on request attributes
+- [x] `EnsureBranchAccess` middleware — verifies branch assignment for non-decision-makers; owner/GM/manager bypass
+- [x] `EnsureFeatureActive` middleware — parameterized Pennant feature flag check (`feature:api-access`)
+- [x] Plan enforcement service:
+  - [x] `PlanEnforcementService::canAdd(shop, resourceKey, member)` — non-decision-makers never blocked; checks plan limits vs live usage
+  - [x] `PlanEnforcementService::computeUsage(shop)` — 8 resource counters (shops, branches, team, products, transactions, storage, suppliers, warehouses) with pct/warning/blocked
+  - [x] Middleware `EnforcePlanLimits` — parameterized (`enforce_plan:productsPerShop`); delegates to `canAdd()`
+- [x] Pennant feature resolvers wired to live plan data *(AppServiceProvider: key mapping from hyphenated Pennant names to camelCase plan JSONB keys; `support` returns rich values)*
+- [x] `Shop` model — `activeSubscription()` HasOne, `billingExemptions()` HasMany, `activePlan` accessor (falls back to free plan)
+- [x] Shop-scoped route group with `GET /api/v1/shops/{shop}/plan-usage` endpoint *(ShopController returns plan details + usage array + decision-maker status)*
 
 ---
 

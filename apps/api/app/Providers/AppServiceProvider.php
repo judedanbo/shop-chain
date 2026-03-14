@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Passport\Passport;
 use Laravel\Pennant\Feature;
+use ShopChain\Core\Models\Shop;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -77,12 +78,24 @@ class AppServiceProvider extends ServiceProvider
      * The 14 plan-gated feature keys. Each resolves against the shop's
      * active plan to determine if the feature is available.
      */
+    private const FEATURE_KEY_MAP = [
+        'pos' => 'pos',
+        'receipts' => 'receipts',
+        'reports' => 'reports',
+        'barcode' => 'barcode',
+        'purchase-orders' => 'purchaseOrders',
+        'stock-transfers' => 'stockTransfers',
+        'low-stock-alerts' => 'lowStockAlerts',
+        'two-fa' => 'twoFA',
+        'api-access' => 'apiAccess',
+        'data-export' => 'dataExport',
+        'custom-branding' => 'customBranding',
+        'audit-trail' => 'auditTrail',
+        'general-manager' => 'generalManager',
+    ];
+
     private function configurePennant(): void
     {
-        // Features are defined as closures that receive the scope (Shop model).
-        // Implementation will resolve from shop's active subscription plan.
-        // Placeholder definitions — will be wired to Plan model in Phase 1.3/8.
-
         $booleanFeatures = [
             'pos',
             'receipts',
@@ -100,15 +113,24 @@ class AppServiceProvider extends ServiceProvider
         ];
 
         foreach ($booleanFeatures as $feature) {
-            Feature::define($feature, function (mixed $scope) {
-                // Will be resolved from $scope->activePlan->features once models exist
-                return false;
+            Feature::define($feature, function (mixed $scope) use ($feature) {
+                if (! $scope instanceof Shop) {
+                    return false;
+                }
+                $planKey = self::FEATURE_KEY_MAP[$feature];
+                $value = $scope->activePlan->features[$planKey] ?? false;
+
+                return (bool) $value;
             });
         }
 
-        // Support has rich values: 'email', 'priority', or false
         Feature::define('support', function (mixed $scope) {
-            return false;
+            if (! $scope instanceof Shop) {
+                return false;
+            }
+            $value = $scope->activePlan->features['support'] ?? false;
+
+            return $value === 'community' ? false : $value;
         });
     }
 }

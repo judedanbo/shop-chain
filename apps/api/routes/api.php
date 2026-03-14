@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\TokenController;
 use App\Http\Controllers\Auth\TwoFactorController;
+use App\Http\Controllers\ShopController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -34,6 +35,13 @@ Route::prefix('v1')->group(function () {
             Route::post('/recovery-codes', [TwoFactorController::class, 'regenerate']);
         });
     });
+
+    // Shop-scoped routes (tenant context)
+    Route::prefix('shops/{shop}')
+        ->middleware(['auth:api', 'active_user', 'set_shop', 'shop_member'])
+        ->group(function () {
+            Route::get('/plan-usage', [ShopController::class, 'planUsage']);
+        });
 
     // Admin auth routes
     Route::prefix('admin/auth')->group(function () {

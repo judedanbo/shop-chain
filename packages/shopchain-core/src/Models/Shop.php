@@ -4,7 +4,9 @@ namespace ShopChain\Core\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use ShopChain\Core\Enums\ShopStatus;
+use ShopChain\Core\Enums\SubscriptionStatus;
 
 class Shop extends BaseModel
 {
@@ -95,8 +97,28 @@ class Shop extends BaseModel
         return $this->hasMany(Subscription::class);
     }
 
+    public function activeSubscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class)
+            ->where('status', SubscriptionStatus::Active);
+    }
+
+    public function billingExemptions(): HasMany
+    {
+        return $this->hasMany(BillingExemption::class);
+    }
+
     public function purchaseOrders(): HasMany
     {
         return $this->hasMany(PurchaseOrder::class);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  Accessors                                                          */
+    /* ------------------------------------------------------------------ */
+
+    public function getActivePlanAttribute(): Plan
+    {
+        return $this->activeSubscription?->plan ?? Plan::where('id', 'free')->first();
     }
 }
