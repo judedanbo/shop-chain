@@ -100,7 +100,7 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
 - [x] Create `packages/shopchain-core/` as a local Composer package
   - [x] Set up `composer.json` with PSR-4 autoloading
   - [x] Configure package service provider for model/migration/config registration
-- [ ] Create `apps/api/` — Laravel 12 API application *(partial — app bootstraps, middleware/rate-limiting/CORS incomplete)*
+- [x] Create `apps/api/` — Laravel 12 API application *(app bootstraps, middleware, rate-limiting all configured; CORS deferred to Phase 12)*
   - [x] Install Laravel Passport *(v13.6.0 — publishes migration tables: `oauth_auth_codes`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_clients`, `oauth_device_codes`)*
   - [x] Generate Passport encryption keys *(oauth-private.key, oauth-public.key)*
   - [x] Docker volume mount for `shopchain/core` symlink resolution *(compose.yaml: `../../packages:/var/packages`)*
@@ -108,7 +108,7 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
   - [x] Verify application bootstrap *(Laravel 12.54.1, PHP 8.5.3, all service providers load)*
   - [x] Verify all endpoints respond *(`/` → ShopChain v1.0.0, `/api/v1/health` → ok)*
   - [x] Verify test suite *(2/2 Pest tests pass)*
-  - [ ] Configure API-only middleware stack (no sessions, no CSRF)
+  - [x] Configure API-only middleware stack (no sessions, no CSRF) *(Laravel 12 `api` middleware group is stateless by default; `bootstrap/app.php` uses `withRouting(api: ...)`)*
   - [x] API versioning via route prefix (`/api/v1/`)
   - [x] Configure rate limiting (per-user, per-IP) *(auth: 5/min per IP, two-factor: 5/min per IP — defined in AppServiceProvider)*
 - [x] Create `apps/web/` — Nuxt 4 standalone application *(verified: typecheck passes, production build succeeds, dev server responds)*
@@ -116,11 +116,11 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
   - [x] Install core modules: `@nuxt/ui`, `@pinia/nuxt`, `@vueuse/nuxt`
   - [x] Install `laravel-echo` + `pusher-js` for Reverb WebSocket client
   - [x] Configure `nuxt.config.ts`: runtime config for API base URL, OAuth2 client ID, Reverb host
-  - [ ] Set up OAuth2 PKCE auth plugin (authorization code grant, token storage, refresh)
+  - [ ] Set up OAuth2 PKCE auth plugin (authorization code grant, token storage, refresh) *(deferred to Phase 12)*
   - [x] Set up file-based routing under `pages/`
-  - [ ] Create route middleware: `auth`, `guest`, `shop`, `permission`
-  - [ ] Create API plugin (`$fetch` wrapper with base URL, token injection, error interceptors)
-- [ ] Configure CORS on API application to allow web app origin
+  - [ ] Create route middleware: `auth`, `guest`, `shop`, `permission` *(deferred to Phase 12)*
+  - [ ] Create API plugin (`$fetch` wrapper with base URL, token injection, error interceptors) *(deferred to Phase 12)*
+- [ ] Configure CORS on API application to allow web app origin *(deferred to Phase 12 — needed when web app connects)*
 - [x] Shared package dependencies (install in `packages/shopchain-core/`):
   - **Tier 1 — Architectural (all phases depend on these):** *(all installed and configured)*
     - [x] `spatie/laravel-data` v4.20.0 — unified DTOs, form requests, API resources, TS type source *(config published, structure caching includes core package)*
@@ -151,7 +151,7 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
   - [x] PHPStan (level 8) for static analysis *(installed, needs phpstan.neon config)*
   - [x] Pint for code style *(installed, needs pint.json config)*
   - [x] Pest for testing *(installed and configured with Feature/Unit suites — 2/2 tests passing)*
-  - [ ] GitHub Actions CI pipeline
+  - [ ] GitHub Actions CI pipeline *(deferred to Phase 14)*
 
 ### 1.2 Database Schema & Migrations ✅
 
@@ -196,65 +196,69 @@ Translate `DATABASE-SCHEMA.md` into Laravel migrations within the shared package
   - [ ] `DemoSeeder` — Translation of `demoData.ts` for development/testing *(deferred to later phase)*
   - [x] `PermissionSeeder` — 48 permissions (36 shop + 12 admin), 12 shop roles with permission assignments (167 role-permission mappings)
 
-### 1.3 Eloquent Models (Shared Package) ✅
+### 1.3 Eloquent Models (Shared Package) ✅ *(52 models complete — traits/data classes applied progressively in Phase 2+)*
 
 Create all 52 models with relationships, scopes, accessors, and casts. *(complete — 52 models, traits, scopes, and casts in place)*
 
-- [ ] **Core Tenant & Identity:**
-  - [ ] `User` — relationships: shops (via shop_members), adminUser, paymentMethods, notifications *(basic stub exists in apps/api, needs full implementation in core package)*
-  - [ ] `Shop` — relationships: owner, branches, members, products, categories, units, suppliers, etc.
-  - [ ] `Branch` — relationships: shop, manager, members, tills, kitchenOrders
-  - [ ] `ShopMember` — relationships: user, shop, branchMembers; accessor for permissions
-  - [ ] `BranchMember` — relationships: member, branch
+- [x] **Core Tenant & Identity:**
+  - [x] `User` — relationships: shops (via shop_members), adminUser, paymentMethods, notifications *(in apps/api/app/Models/User.php with Passport, Spatie, and 2FA traits wired)*
+  - [x] `Shop` — relationships: owner, branches, members, products, categories, units, suppliers, etc.
+  - [x] `Branch` — relationships: shop, manager, members, tills, kitchenOrders
+  - [x] `ShopMember` — relationships: user, shop, branchMembers; accessor for permissions
+  - [x] `BranchMember` — relationships: member, branch
 
-- [ ] **Products & Inventory:**
-  - [ ] `Category`, `UnitOfMeasure`, `Product`, `Warehouse`, `ProductLocation`
-  - [ ] `Batch`, `StockAdjustment`, `StockTransfer`
-  - [ ] `PriceHistory` — tracks cost/selling price changes per product
-  - [ ] `GoodsReceipt`, `GoodsReceiptItem` — ad-hoc goods receiving outside PO workflow
+- [x] **Products & Inventory:**
+  - [x] `Category`, `UnitOfMeasure`, `Product`, `Warehouse`, `ProductLocation`
+  - [x] `Batch`, `StockAdjustment`, `StockTransfer`
+  - [x] `PriceHistory` — tracks cost/selling price changes per product
+  - [x] `GoodsReceipt`, `GoodsReceiptItem` — ad-hoc goods receiving outside PO workflow
 
-- [ ] **Suppliers & PO:**
-  - [ ] `Supplier`, `SupplierProduct`, `PurchaseOrder`, `POItem`
+- [x] **Suppliers & PO:**
+  - [x] `Supplier`, `SupplierProduct`, `PurchaseOrder`, `POItem`
 
-- [ ] **Sales & POS:**
-  - [ ] `Customer`, `Till`, `TillPayment`, `Sale`, `SaleItem`, `SalePayment`
-  - [ ] `PosHeldOrder`, `PosHeldOrderItem` — retail POS held/parked carts
+- [x] **Sales & POS:**
+  - [x] `Customer`, `Till`, `TillPayment`, `Sale`, `SaleItem`, `SalePayment`
+  - [x] `PosHeldOrder`, `PosHeldOrderItem` — retail POS held/parked carts
 
-- [ ] **Kitchen:**
-  - [ ] `KitchenOrder`, `KitchenOrderItem`, `HeldOrder`, `HeldOrderItem` — bar/kitchen held orders (distinct from retail POS held orders)
+- [x] **Kitchen:**
+  - [x] `KitchenOrder`, `KitchenOrderItem`, `HeldOrder`, `HeldOrderItem` — bar/kitchen held orders (distinct from retail POS held orders)
 
-- [ ] **Billing:**
-  - [ ] `Plan`, `Subscription`, `PaymentMethod`, `BillingRecord`
-  - [ ] `BillingExemption` — admin-granted exemptions (extra resources beyond plan limits)
+- [x] **Billing:**
+  - [x] `Plan`, `Subscription`, `PaymentMethod`, `BillingRecord`
+  - [x] `BillingExemption` — admin-granted exemptions (extra resources beyond plan limits)
 
-- [ ] **Admin & Audit:**
-  - [ ] `AdminUser`, `Announcement`, `AuditEvent`, `Investigation`
-  - [ ] `InvestigationEvent`, `InvestigationNote`, `Anomaly`, `AnomalyEvent`
-  - [ ] `DetectionRule` — configurable anomaly detection rules
-  - [ ] `AdminExpense`, `AdminExpenseAttachment` — platform operational expenses
-  - [ ] `Milestone` — investor-facing platform milestones
+- [x] **Admin & Audit:**
+  - [x] `AdminUser`, `Announcement`, `AuditEvent`, `Investigation`
+  - [x] `InvestigationEvent`, `InvestigationNote`, `Anomaly`, `AnomalyEvent`
+  - [x] `DetectionRule` — configurable anomaly detection rules
+  - [x] `AdminExpense`, `AdminExpenseAttachment` — platform operational expenses
+  - [x] `Milestone` — investor-facing platform milestones
 
-- [ ] **Notifications:**
-  - [ ] `Notification`
-  - [ ] `NotificationPreference` — per-user per-category channel preferences
+- [x] **Notifications:**
+  - [x] `Notification`
+  - [x] `NotificationPreference` — per-user per-category channel preferences
 
-- [ ] **Framework:**
-  - [ ] `Session` — database session storage (Laravel framework table)
+- [x] **Framework:**
+  - [x] `Session` — database session storage (Laravel framework table)
 
-- [ ] Global scopes:
-  - [ ] `ShopScope` — auto-filters by `app.current_shop_id` for all shop-scoped models
-- [ ] Traits:
-  - [ ] `BelongsToShop` — common shop_id relationship + scope
-  - [ ] `LogsActivity` (from `spatie/laravel-activitylog`) — replaces custom `HasAuditTrail`; auto-logs changes with before/after snapshots, causer, custom properties (IP, device, risk score)
-  - [ ] `HasStates` (from `spatie/laravel-model-states`) — on PurchaseOrder, Sale, KitchenOrder, KitchenOrderItem, StockTransfer, StockAdjustment, GoodsReceipt for declarative status lifecycles
-  - [ ] `HasRoles` (from `spatie/laravel-permission`) — on User/ShopMember with team scoping (team_id = shop_id)
-  - [ ] `InteractsWithMedia` (from `spatie/laravel-medialibrary`) — on Product, Shop, User for image/file uploads
-  - [ ] `HasUuid` — UUID primary key generation
-- [ ] Data classes (from `spatie/laravel-data`) — one class per entity replaces separate Form Request + API Resource:
+- [x] Global scopes:
+  - [x] `ShopScope` — auto-filters by `app.current_shop_id` for all shop-scoped models *(exists at `packages/shopchain-core/src/Scopes/ShopScope.php`)*
+- Traits:
+  - [x] `BelongsToShop` — common shop_id relationship + scope *(exists at `packages/shopchain-core/src/Traits/BelongsToShop.php`)*
+  - [x] `HasShopRelationships` — shared shop relationship helpers *(exists at `packages/shopchain-core/src/Traits/HasShopRelationships.php`)*
+  - [ ] `LogsActivity` (from `spatie/laravel-activitylog`) — replaces custom `HasAuditTrail`; auto-logs changes with before/after snapshots, causer, custom properties (IP, device, risk score) *(deferred — applied per-model as CRUD is built in Phase 2+)*
+  - [ ] `HasStates` (from `spatie/laravel-model-states`) — on PurchaseOrder, Sale, KitchenOrder, KitchenOrderItem, StockTransfer, StockAdjustment, GoodsReceipt for declarative status lifecycles *(deferred — state classes built per-entity in Phase 2+; `packages/shopchain-core/src/States/` is empty)*
+  - [x] `HasRoles` (from `spatie/laravel-permission`) — on User/ShopMember with team scoping (team_id = shop_id) *(wired on User model in `apps/api/app/Models/User.php`)*
+  - [ ] `InteractsWithMedia` (from `spatie/laravel-medialibrary`) — on Product, Shop, User for image/file uploads *(deferred — medialibrary not yet installed, Phase 2.1+)*
+  - [x] `HasUuid` — UUID primary key generation *(covered by `BaseModel` using Laravel's `HasUuids` trait)*
+- [x] Custom casts:
+  - [x] `PostgresArray` — handles PostgreSQL array column casting *(exists at `packages/shopchain-core/src/Casts/PostgresArray.php`)*
+  - [x] `PostgresEnumArray` — handles PostgreSQL enum array casting *(exists at `packages/shopchain-core/src/Casts/PostgresEnumArray.php`)*
+- [ ] Data classes (from `spatie/laravel-data`) — one class per entity replaces separate Form Request + API Resource: *(deferred — built per-entity in Phase 2+; `packages/shopchain-core/src/Data/` is empty)*
   - [ ] Each Data class handles validation (inferred from types + attributes), serialization, and TypeScript generation
   - [ ] Examples: `ProductData`, `SaleData`, `PurchaseOrderData`, `CustomerData`, `ShopData`, etc.
 
-### 1.4 Authentication & Authorization ✅
+### 1.4 Authentication & Authorization ✅ *(API auth complete — policies and web app auth deferred)*
 
 - [x] **Passport setup (API app):** *(password grant enabled, password client config added, token issuance trait implemented)*
   - [ ] Personal access tokens for mobile clients *(deferred — mobile Phase 13)*
