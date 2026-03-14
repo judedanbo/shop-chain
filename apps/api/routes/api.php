@@ -7,9 +7,12 @@ use App\Http\Controllers\Auth\TokenController;
 use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\GoodsReceiptController;
+use App\Http\Controllers\PosHeldOrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\SaleController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\StockTransferController;
@@ -146,6 +149,22 @@ Route::prefix('v1')->group(function () {
             Route::post('purchase-orders/{po}/ship', [PurchaseOrderController::class, 'ship']);
             Route::post('purchase-orders/{po}/receive', [PurchaseOrderController::class, 'receive']);
             Route::post('purchase-orders/{po}/cancel', [PurchaseOrderController::class, 'cancel']);
+
+            // Sales (POS)
+            Route::get('sales', [SaleController::class, 'index']);
+            Route::post('sales', [SaleController::class, 'store'])
+                ->middleware('enforce_plan:monthlyTransactions');
+            Route::get('sales/{sale}', [SaleController::class, 'show']);
+
+            // Customers
+            Route::apiResource('customers', CustomerController::class);
+
+            // POS Held Orders
+            Route::get('pos-held-orders', [PosHeldOrderController::class, 'index']);
+            Route::post('pos-held-orders', [PosHeldOrderController::class, 'store']);
+            Route::get('pos-held-orders/{posHeldOrder}', [PosHeldOrderController::class, 'show']);
+            Route::post('pos-held-orders/{posHeldOrder}/recall', [PosHeldOrderController::class, 'recall']);
+            Route::delete('pos-held-orders/{posHeldOrder}', [PosHeldOrderController::class, 'destroy']);
         });
 
     // Admin auth routes

@@ -6,20 +6,26 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use ShopChain\Core\Models\Branch;
 use ShopChain\Core\Models\Category;
-use ShopChain\Core\Models\Product;
-use ShopChain\Core\Models\Shop;
+use ShopChain\Core\Models\Customer;
 use ShopChain\Core\Models\GoodsReceipt;
+use ShopChain\Core\Models\PosHeldOrder;
+use ShopChain\Core\Models\Product;
+use ShopChain\Core\Models\PurchaseOrder;
+use ShopChain\Core\Models\Sale;
+use ShopChain\Core\Models\Shop;
 use ShopChain\Core\Models\StockAdjustment;
 use ShopChain\Core\Models\StockTransfer;
-use ShopChain\Core\Models\UnitOfMeasure;
-use ShopChain\Core\Models\PurchaseOrder;
 use ShopChain\Core\Models\Supplier;
+use ShopChain\Core\Models\UnitOfMeasure;
 use ShopChain\Core\Models\Warehouse;
 use ShopChain\Core\Policies\BranchPolicy;
 use ShopChain\Core\Policies\CategoryPolicy;
+use ShopChain\Core\Policies\CustomerPolicy;
 use ShopChain\Core\Policies\GoodsReceiptPolicy;
+use ShopChain\Core\Policies\PosHeldOrderPolicy;
 use ShopChain\Core\Policies\ProductPolicy;
 use ShopChain\Core\Policies\PurchaseOrderPolicy;
+use ShopChain\Core\Policies\SalePolicy;
 use ShopChain\Core\Policies\ShopPolicy;
 use ShopChain\Core\Policies\StockAdjustmentPolicy;
 use ShopChain\Core\Policies\StockTransferPolicy;
@@ -58,6 +64,9 @@ class CoreServiceProvider extends ServiceProvider
         Gate::policy(GoodsReceipt::class, GoodsReceiptPolicy::class);
         Gate::policy(Supplier::class, SupplierPolicy::class);
         Gate::policy(PurchaseOrder::class, PurchaseOrderPolicy::class);
+        Gate::policy(Sale::class, SalePolicy::class);
+        Gate::policy(Customer::class, CustomerPolicy::class);
+        Gate::policy(PosHeldOrder::class, PosHeldOrderPolicy::class);
 
         if ($this->app->runningInConsole()) {
             $this->publishes([

@@ -322,7 +322,7 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(complet
     - `partial` → subset of sub-permissions (e.g., `products.view`, `products.edit` only)
     - `view` → read-only sub-permission (e.g., `products.view` only)
     - `none` → no permissions assigned for that module
-  - [ ] Policy classes delegate to permission checks: *(7 of 12 done — ProductPolicy, CategoryPolicy, UnitOfMeasurePolicy in Phase 2.2; WarehousePolicy, StockAdjustmentPolicy, StockTransferPolicy, GoodsReceiptPolicy in Phase 2.4)*
+  - [ ] Policy classes delegate to permission checks: *(12 of 14 done)*
     - [x] `ProductPolicy` *(products.view, products.edit, products.delete, products.price)*
     - [x] `CategoryPolicy` *(products.view, products.edit — no separate category permissions)*
     - [x] `UnitOfMeasurePolicy` *(products.view, products.edit — no separate unit permissions)*
@@ -330,8 +330,12 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(complet
     - [x] `StockAdjustmentPolicy` *(inventory.view, inventory.adjust, inventory.approve)*
     - [x] `StockTransferPolicy` *(inventory.view, inventory.transfer)*
     - [x] `GoodsReceiptPolicy` *(inventory.view, inventory.adjust)*
-    - [ ] `SalePolicy`, `PurchaseOrderPolicy`
-    - [ ] `TeamPolicy`, `SettingsPolicy`, `SupplierPolicy`
+    - [x] `SupplierPolicy` *(suppliers.view, suppliers.edit, suppliers.delete)*
+    - [x] `PurchaseOrderPolicy` *(purchase_orders.view, purchase_orders.create, purchase_orders.approve)*
+    - [x] `SalePolicy` *(pos.access OR sales.view, pos.access for create)*
+    - [x] `CustomerPolicy` *(customers.view, customers.edit, customers.delete)*
+    - [x] `PosHeldOrderPolicy` *(pos.access)*
+    - [ ] `TeamPolicy`, `SettingsPolicy`
     - [ ] `DashboardPolicy`, `BarKitchenPolicy`
   - [ ] `AdminPolicy` — separate admin guard with 12 boolean admin permissions
   - [x] `isDecisionMaker` helper for plan limit enforcement: *(implemented in PlanEnforcementService + EnsureBranchAccess)*
@@ -476,7 +480,7 @@ Build the domain logic and API endpoints for the primary business operations. Ea
 - **Deferred items:**
   - [ ] `StockAdjusted`/`StockTransferred`/`LowStockDetected` events *(deferred to Phase 7 — no listeners exist yet)*
   - [ ] State machines via `spatie/laravel-model-states` *(not adopted — explicit service methods + status checks sufficient for all Phase 2 modules)*
-  - [ ] Batch tracking FEFO integration *(batch status computation, FEFO consumption — deferred to Phase 3.1 POS stock decrement)*
+  - [x] Batch tracking FEFO integration *(implemented in Phase 3.1 SaleService — consume oldest-expiry-first, mark Depleted when qty=0, link first batch to SaleItem.batch_id)*
   - [ ] Auto-computed product stock status from ProductLocation totals *(deferred)*
 
 ### 2.5 Suppliers & Purchase Orders ✅
@@ -536,39 +540,59 @@ Build the domain logic and API endpoints for the primary business operations. Ea
 
 The transactional heart of the application. Requires careful attention to data integrity, stock management, and payment handling.
 
-### 3.1 POS Core
+### 3.1 POS Core — Sales, Customers & Held Orders ✅
 
-- **Service:** `SaleService`
-  - **Monetary fields** cast via `elegantly/laravel-money` — `subtotal`, `tax`, `discount_amount`, `total`, payment amounts all use `MoneyCast::class.':GHS'`
-  - **Sale creation:**
-    - Validate cart items (stock availability, pricing)
-    - Apply discount (role-based limits per DISCOUNT_ROLE_LIMITS)
-    - Calculate tax (read from `shops.tax_rate`, default 15% VAT for Ghana)
-    - Decrement product stock (fix known gap #3)
-    - Decrement batch quantities (FEFO order) for batch-tracked products
-    - Generate receipt ID (`TXN-YYYYMMDD-NNNN`)
-    - Generate verify token (12-char cryptographic)
-    - Generate QR code for receipt verification via `simplesoftwareio/simple-qrcode` (encodes public `/verify/{token}` URL)
-    - Record payment details per method
-    - Update customer stats (totalSpent, visits, loyaltyPts)
-    - Enforce plan transaction limit (checked via Pennant + `PlanEnforcementService`)
-  - **Split payments:**
-    - 2–4 payment entries
-    - Sum must equal total (±0.01 tolerance)
-    - Each split validated per payment method
-  - **POS Held Orders (Retail):**
-    - Uses `pos_held_orders` / `pos_held_order_items` tables (distinct from bar/kitchen held orders)
-    - Park current cart + discount state
-    - Recall to active cart
-    - Discard with confirmation
-- **Endpoints:**
-  - `POST /shops/{shop}/sales` — create sale
-  - `GET /shops/{shop}/sales` — list with filters (date range, status, cashier, branch)
-  - `GET /shops/{shop}/sales/{sale}` — detail with items and payments
-  - `POST/GET/DELETE /shops/{shop}/pos-held-orders`, `POST /shops/{shop}/pos-held-orders/{id}/recall`
-- **Events:**
-  - `SaleCompleted` → stock decrement, customer update, receipt generation, audit log
-  - `DiscountApplied` → notification (high priority if ≥15%)
+- [x] **Service:** `SaleService` *(createSale in DB::transaction — validates stock at branch, computes subtotal/tax/discount/total, validates payments, creates Sale + SaleItems + SalePayments, decrements ProductLocation stock, consumes batches FEFO, updates customer stats)*
+  - [x] **Monetary fields** use `decimal:2` casts *(consistent with Phases 2.1-2.5; `elegantly/laravel-money` not adopted)*
+  - [x] **Sale creation:**
+    - [x] Validate cart items (ProductLocation stock at branch_id)
+    - [x] Apply discount (percent or fixed, clamped to subtotal; discount accepted if user has `pos.discount` permission — no role-based limits yet)
+    - [x] Calculate tax from `shops.tax_rate` (default 15% VAT for Ghana)
+    - [x] Decrement ProductLocation stock per item at branch
+    - [x] Decrement batch quantities FEFO for batch-tracked products (consume oldest-expiry-first, mark Depleted when qty reaches 0, link first batch to SaleItem.batch_id)
+    - [x] Generate verify_token (Str::random(12)) *(no QR code generation — frontend concern)*
+    - [x] Record payment details per method (cash with change, card with card_type, momo with provider/phone)
+    - [x] Update customer stats (increment visits, total_spent, loyalty_pts=floor(total/10), set last_visit)
+    - [x] Plan transaction limit enforced via `enforce_plan:monthlyTransactions` middleware
+  - [x] **Split payments:**
+    - [x] 2–4 payment entries (N separate SalePayment rows, not a parent Split row)
+    - [x] Sum must equal total (±0.01 tolerance)
+    - [x] Each split validated per payment method
+    - [x] Plan feature check: `$shop->activePlan->features['pos']` must equal `'full_split'` (Max plan only)
+  - [x] **POS Held Orders (Retail):**
+    - [x] Uses `pos_held_orders` / `pos_held_order_items` tables (distinct from bar/kitchen held orders)
+    - [x] Park current cart + discount state
+    - [x] Recall to active cart (returns data then deletes)
+    - [x] Discard (delete)
+- [x] **Service:** `CustomerService` *(createCustomer with shop_id + default Regular type, updateCustomer, deleteCustomer with sales-exist guard)*
+- [x] **Policies:** `SalePolicy` *(viewAny/view → pos.access OR sales.view, create → pos.access)*, `CustomerPolicy` *(viewAny/view → customers.view, create/update → customers.edit, delete → customers.delete)*, `PosHeldOrderPolicy` *(viewAny/view/create/delete → pos.access)*
+- [x] **Resources:** `SaleResource` (with branch, cashier, customer, items, payments, items_count), `SaleItemResource` (with product id/name/sku), `SalePaymentResource`, `CustomerResource` (with sales_count), `PosHeldOrderResource` (with heldBy, items with product)
+- [x] **Form Requests:** CreateSaleRequest (branch/till/customer shop-scoped, items array, payment_method enum, splits validation), CreateCustomerRequest/UpdateCustomerRequest (phone unique per shop), CreatePosHeldOrderRequest
+- [x] **Factories:** `CustomerFactory` (states: wholesale, walkIn), `SaleFactory` (states: reversed, pendingReversal), `SalePaymentFactory` (states: card, momo), `PosHeldOrderFactory`
+- [x] **Endpoints (14):**
+  - `GET/POST /shops/{shop}/sales`, `GET /shops/{shop}/sales/{sale}`
+  - `GET/POST/GET/PUT|PATCH/DELETE /shops/{shop}/customers` (apiResource)
+  - `GET/POST /shops/{shop}/pos-held-orders`, `GET /shops/{shop}/pos-held-orders/{posHeldOrder}`
+  - `POST /shops/{shop}/pos-held-orders/{posHeldOrder}/recall`, `DELETE /shops/{shop}/pos-held-orders/{posHeldOrder}`
+- [x] **Tests:** SaleCrudTest (18), CustomerCrudTest (10), PosHeldOrderTest (8) — 36 tests passing
+- [x] **Business rules:**
+  - [x] `till_id` nullable — full till management deferred
+  - [x] Stock must be at the branch to sell (ProductLocation where branch_id = sale.branch_id)
+  - [x] Cash payment rejected when amount_tendered < total
+  - [x] Split payments only on Max plan (pos feature = 'full_split')
+  - [x] Customer deletion blocked when sales exist
+  - [x] Phone uniqueness per shop for customers
+  - [x] Loyalty points: floor(total / 10) — 1 point per GHS 10 spent
+  - [x] No events — SaleCompleted/DiscountApplied deferred to Phase 7
+  - [x] No role-based discount limits — DISCOUNT_ROLE_LIMITS config doesn't exist yet
+  - [x] No QR code generation — API stores verify_token only; QR is frontend concern
+- **Deferred items:**
+  - [ ] `SaleCompleted`/`DiscountApplied` events *(deferred to Phase 7 — all side-effects handled inline in SaleService)*
+  - [ ] Receipt ID generation (`TXN-YYYYMMDD-NNNN`) *(not in current migration schema)*
+  - [ ] QR code generation via `simplesoftwareio/simple-qrcode` *(frontend concern)*
+  - [ ] Role-based discount limits *(DISCOUNT_ROLE_LIMITS config doesn't exist yet)*
+  - [ ] Customer purchase history endpoint *(deferred)*
+  - [ ] Customer search via Scout + Meilisearch *(deferred)*
 
 ### 3.2 Sale Reversals
 
@@ -671,22 +695,24 @@ Real-time order flow between bar POS, kitchen display, and till management.
 
 ## Phase 5 — Customer Management
 
-### 5.1 Customer CRM
+### 5.1 Customer CRM ✅ *(implemented in Phase 3.1)*
 
-- **Service:** `CustomerService`
-  - CRUD with shop scoping
-  - Customer types: regular, wholesale, walk-in
-  - Loyalty points system (1 point per GH₵ 10 spent)
-  - Purchase history aggregation (totalSpent, visits, lastVisit)
-  - Customer search (name, phone, email)
-- **Endpoints:**
-  - `GET/POST/PATCH /shops/{shop}/customers/{customer?}`
-  - `GET /shops/{shop}/customers/{customer}/purchases` — purchase history
-- **Business rules:**
-  - Points are incremental (added on sale, subtracted on reversal)
-  - All decrements clamped to 0
-  - Walk-in customers auto-created with minimal data
-  - Phone search index for quick POS lookup
+- [x] **Service:** `CustomerService` *(createCustomer, updateCustomer, deleteCustomer with sales-exist guard)*
+- [x] **Policy:** `CustomerPolicy` *(customers.view, customers.edit, customers.delete)*
+- [x] **Resource:** `CustomerResource` (with sales_count)
+- [x] **Endpoints:** `GET/POST/GET/PUT|PATCH/DELETE /shops/{shop}/customers` (apiResource)
+- [x] **Tests:** CustomerCrudTest (10 tests) — unique phone per shop, CRUD, role-based access, delete protection
+- [x] **Business rules:**
+  - [x] Customer types: regular, wholesale, walk-in
+  - [x] Loyalty points: 1 point per GHS 10 spent (added on sale completion)
+  - [x] Stats updated inline in SaleService (totalSpent, visits, lastVisit, loyaltyPts)
+  - [x] Phone uniqueness per shop
+  - [x] Cannot delete customer with existing sales
+- **Deferred items:**
+  - [ ] Purchase history endpoint (`GET /shops/{shop}/customers/{customer}/purchases`)
+  - [ ] Customer search via Scout + Meilisearch
+  - [ ] Walk-in customer auto-creation
+  - [ ] Points subtracted on reversal (clamped to 0) — Phase 3.2
 
 ---
 
