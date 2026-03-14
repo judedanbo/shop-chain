@@ -254,7 +254,7 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(complet
 - [x] Custom casts:
   - [x] `PostgresArray` — handles PostgreSQL array column casting *(exists at `packages/shopchain-core/src/Casts/PostgresArray.php`)*
   - [x] `PostgresEnumArray` — handles PostgreSQL enum array casting *(exists at `packages/shopchain-core/src/Casts/PostgresEnumArray.php`)*
-- [ ] Data classes (from `spatie/laravel-data`) — one class per entity replaces separate Form Request + API Resource: *(deferred — built per-entity in Phase 2+; `packages/shopchain-core/src/Data/` is empty)*
+- [ ] Data classes (from `spatie/laravel-data`) — *(deferred; Phase 2.1–2.3 use Form Requests + API Resources for consistency. Revisit when TypeScript generation matters in Phase 12.5. `packages/shopchain-core/src/Data/` stays empty.)*
   - [ ] Each Data class handles validation (inferred from types + attributes), serialization, and TypeScript generation
   - [ ] Examples: `ProductData`, `SaleData`, `PurchaseOrderData`, `CustomerData`, `ShopData`, etc.
 
@@ -322,10 +322,13 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(complet
     - `partial` → subset of sub-permissions (e.g., `products.view`, `products.edit` only)
     - `view` → read-only sub-permission (e.g., `products.view` only)
     - `none` → no permissions assigned for that module
-  - [ ] Policy classes delegate to permission checks:
-    - `ProductPolicy`, `SalePolicy`, `PurchaseOrderPolicy`, `InventoryPolicy`
-    - `TeamPolicy`, `SettingsPolicy`, `WarehousePolicy`, `SupplierPolicy`, `CategoryPolicy`, `UnitPolicy`
-    - `DashboardPolicy`, `BarKitchenPolicy`
+  - [ ] Policy classes delegate to permission checks: *(3 of 12 done — ProductPolicy, CategoryPolicy, UnitOfMeasurePolicy implemented in Phase 2.2)*
+    - [x] `ProductPolicy` *(products.view, products.edit, products.delete, products.price)*
+    - [x] `CategoryPolicy` *(products.view, products.edit — no separate category permissions)*
+    - [x] `UnitOfMeasurePolicy` *(products.view, products.edit — no separate unit permissions)*
+    - [ ] `SalePolicy`, `PurchaseOrderPolicy`, `InventoryPolicy`
+    - [ ] `TeamPolicy`, `SettingsPolicy`, `WarehousePolicy`, `SupplierPolicy`
+    - [ ] `DashboardPolicy`, `BarKitchenPolicy`
   - [ ] `AdminPolicy` — separate admin guard with 12 boolean admin permissions
   - [x] `isDecisionMaker` helper for plan limit enforcement: *(implemented in PlanEnforcementService + EnsureBranchAccess)*
     - Decision makers: roles with `isDecisionMaker = true` (owner, general_manager, manager)
@@ -373,65 +376,72 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(complet
 
 Build the domain logic and API endpoints for the primary business operations. Each module includes: service class, API controller, form requests, API resources, and tests.
 
-### 2.1 Shop & Branch Management
+### 2.1 Shop & Branch Management ✅
 
-- **Service:** `ShopService`
-  - Create shop (with default branch, subscription assignment)
-  - Update shop settings (name, address, tax config, receipt footer)
-  - Shop logo upload via `spatie/laravel-medialibrary` (`shop-logos` collection on S3)
-  - Delete shop (cascade, owner-only)
-  - Branch CRUD within a shop
-- **Endpoints:**
+- [x] **Service:** `ShopService` *(create with owner membership + default branch, update, updateSettings, delete, uploadLogo via direct S3, deleteLogo)*
+- [x] **Service:** `BranchService` *(create, update, delete with default-branch guard)*
+- [x] **Policies:** `ShopPolicy`, `BranchPolicy` *(registered in CoreServiceProvider)*
+- [x] **Resources:** `ShopResource`, `BranchResource`, `ShopSettingsResource`
+- [x] **Form Requests:** Shop (Create/Update/UpdateSettings/UploadLogo), Branch (Create/Update)
+- [x] **Factories:** `ShopFactory`, `BranchFactory`, `ShopMemberFactory`
+- [x] **Endpoints (10):**
   - `GET/POST /shops`, `GET/PATCH/DELETE /shops/{shop}`
   - `GET/POST /shops/{shop}/branches`, `GET/PATCH/DELETE /shops/{shop}/branches/{branch}`
-  - `GET /shops/{shop}/settings`, `PATCH /shops/{shop}/settings`
-- **Business rules:**
-  - Shop creation enforces plan limit (`canAdd('shops')`)
-  - Branch creation enforces per-shop limit (`canAdd('branches')`)
-  - Default branch auto-created with shop
-  - Shop types: retail, wholesale, pharmacy, restaurant
-  - 16 Ghana regions for address
+  - `GET/PATCH /shops/{shop}/settings`, `POST/DELETE /shops/{shop}/logo`, `GET /shops/{shop}/plan-usage`
+- [x] **Tests:** ShopCrudTest (12), ShopSettingsTest (5), BranchCrudTest (8) — 25 tests passing
+- [x] **Business rules:** plan limit enforcement on shop + branch creation, default branch auto-created, logo upload via direct S3
 
-### 2.2 Product Catalog
+### 2.2 Product Catalog ✅
 
-- **Service:** `ProductService`
-  - Full CRUD with SKU uniqueness per shop
-  - Barcode assignment, validation, and image generation via `picqer/php-barcode-generator` (Code128, EAN-13, UPC-A → SVG/PNG)
-  - Stock status computation (`in_stock`, `low_stock`, `out_of_stock`)
-  - Batch-tracked products with FEFO logic
-  - Bulk import/export (CSV/Excel via `maatwebsite/excel` — chunked reads, queued jobs, validation with skip-on-failure)
-  - Product search via Scout + Meilisearch
-  - Auto-slug via `spatie/laravel-sluggable` (shop-scoped uniqueness)
-- **Data class:** `ProductData` (from `spatie/laravel-data`) — single class handles validation, API serialization, and TypeScript type generation
-- **Monetary fields** cast via `elegantly/laravel-money` (`MoneyCast::class.':GHS'`) on `cost_price`, `selling_price` — stores as bigint (pesewas), prevents float precision errors
-- **Images:** Product images managed via `spatie/laravel-medialibrary` `product-images` collection on S3 with automatic thumbnail conversions
-- **List endpoint filtering** via `spatie/laravel-query-builder`:
-  - `?filter[status]=active&filter[category_id]=5&sort=-created_at&include=category,batches`
-- **Endpoints:**
-  - `GET/POST /shops/{shop}/products`, `GET/PATCH/DELETE /shops/{shop}/products/{product}`
+- [x] **Service:** `ProductService` *(createProduct, updateProduct, deleteProduct with S3 image cleanup, updatePrice with PriceHistory recording, uploadImage, deleteImage — follows ShopService::uploadLogo() pattern)*
+- [x] **Policy:** `ProductPolicy` *(viewAny/view → products.view, create/update → products.edit, delete → products.delete, updatePrice → products.price)*
+- [x] **Resources:** `ProductResource` (with whenLoaded category/unit, whenCounted batches), `BatchResource`, `PriceHistoryResource`
+- [x] **Form Requests:** Product (Create/Update/UpdatePrice/UploadImage), Batch (Create/Update) — shop-scoped uniqueness on SKU and batch_number
+- [x] **Factories:** `ProductFactory` (states: lowStock, outOfStock, batchTracked), `BatchFactory` (states: expired, depleted, withExpiry)
+- [x] **List endpoint filtering** via `spatie/laravel-query-builder` *(first usage — sets pattern for all future list endpoints)*:
+  - `AllowedFilter::exact('status')` for PostgreSQL enum columns, `AllowedFilter::partial('name')` for text search
+  - `?filter[status]=in_stock&filter[category_id]=...&sort=-price&include=category,unit`
+- [x] **Endpoints (15):**
+  - `GET/POST /shops/{shop}/products`, `GET/PUT|PATCH/DELETE /shops/{shop}/products/{product}`
   - `PATCH /shops/{shop}/products/{product}/price`
+  - `GET /shops/{shop}/products/{product}/price-history`
   - `GET/POST /shops/{shop}/products/{product}/batches`
-  - `PATCH /shops/{shop}/products/{product}/batches/{batch}`
-  - `POST /shops/{shop}/products/import`, `GET /shops/{shop}/products/export`
-- **Business rules:**
-  - Product creation enforces plan limit
-  - Status auto-computed: `stock <= 0` → out_of_stock, `stock <= reorder` → low_stock
-  - Barcode uniqueness per shop (partial index)
-  - Price changes log to `price_history` table (old/new cost and selling price, changed_by, reason)
-- **Price History:**
-  - `PriceHistoryService` — auto-records every cost/selling price change
-  - `GET /shops/{shop}/products/{product}/price-history` — paginated price change log
+  - `PATCH /shops/{shop}/products/{product}/batches/{batch}` (scopeBindings)
+  - [ ] `POST /shops/{shop}/products/import`, `GET /shops/{shop}/products/export` *(deferred to Phase 2.2b — requires maatwebsite/excel)*
+- [x] **Tests:** ProductCrudTest (16), ProductPriceTest (4), BatchTest (5) — 25 tests passing
+- [x] **Business rules:**
+  - [x] Product creation enforces plan limit (`enforce_plan:productsPerShop` middleware)
+  - [x] SKU uniqueness per shop (cross-shop allowed)
+  - [x] Price changes log to `price_history` table (old/new price/cost, changed_by, reason)
+  - [x] Batch FEFO ordering (expiry ASC NULLS LAST)
+  - [x] initial_quantity auto-set on batch creation
+  - [x] Permission-based access: viewer can view, manager can edit (not delete/price), owner has full access
+- **Deferred items:**
+  - [ ] Barcode image generation via `picqer/php-barcode-generator` *(API stores barcode string; generation is display concern)*
+  - [ ] Product search via Scout + Meilisearch *(deferred to later phase)*
+  - [ ] Bulk import/export via `maatwebsite/excel` *(deferred to Phase 2.2b or Phase 11)*
+  - [ ] `spatie/laravel-medialibrary` for image management *(using direct S3 upload pattern instead)*
+  - [ ] `elegantly/laravel-money` for monetary casting *(current decimal:2 casts work; DB uses NUMERIC(12,2))*
+  - [ ] `spatie/laravel-sluggable` *(no slug column in products migration)*
+  - [ ] `spatie/laravel-data` ProductData class *(using Form Requests + API Resources for consistency with Phase 2.1)*
+  - [ ] Auto-computed stock status *(status set manually; auto-computation deferred to Phase 2.4 inventory integration)*
 
-### 2.3 Categories & Units of Measure
+### 2.3 Categories & Units of Measure ✅
 
-- **Services:** `CategoryService`, `UnitService`
-- **Endpoints:**
-  - `GET/POST/PATCH/DELETE /shops/{shop}/categories/{category?}`
-  - `GET/POST/PATCH/DELETE /shops/{shop}/units/{unit?}`
-- **Business rules:**
-  - Name uniqueness per shop (case-insensitive)
-  - Category product count is computed (not stored)
-  - Sort order for categories
+- [x] **Services:** `CategoryService` *(create, update, delete with products-exist guard)*, `UnitOfMeasureService` *(create, update, delete with products-exist guard)*
+- [x] **Policies:** `CategoryPolicy`, `UnitOfMeasurePolicy` *(both use products.view/products.edit — no separate permissions)*
+- [x] **Resources:** `CategoryResource` (with whenCounted products), `UnitOfMeasureResource` (with whenCounted products)
+- [x] **Form Requests:** Category (Create/Update — name unique per shop), Unit (Create/Update — abbreviation unique per shop, UnitType enum validation)
+- [x] **Factories:** `CategoryFactory` (state: inactive), `UnitOfMeasureFactory`
+- [x] **Endpoints (10):**
+  - `GET/POST /shops/{shop}/categories`, `GET/PUT|PATCH/DELETE /shops/{shop}/categories/{category}`
+  - `GET/POST /shops/{shop}/units`, `GET/PUT|PATCH/DELETE /shops/{shop}/units/{unit}`
+- [x] **Tests:** CategoryCrudTest (8), UnitCrudTest (7) — 15 tests passing
+- [x] **Business rules:**
+  - [x] Name uniqueness per shop (categories), abbreviation uniqueness per shop (units)
+  - [x] Cannot delete category or unit that has associated products (ValidationException)
+  - [x] Category product count computed via withCount (not stored)
+  - [x] Categories ordered by sort_order then name; units ordered by name
 
 ### 2.4 Inventory Management
 
@@ -1131,7 +1141,7 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000
 - **Integration tests (backend):** Multi-step workflows (PO → receive → stock update)
 - **Unit tests (frontend):** Vitest + `@vue/test-utils` for Vue component and composable tests
 - **E2E tests:** Playwright for critical user flows (replaces Laravel Dusk — runs against Nuxt app + API)
-- **Test factories:** All 52 models with realistic fake data
+- **Test factories:** All 52 models with realistic fake data *(7 of 52 done: Shop, Branch, ShopMember, Product, Category, UnitOfMeasure, Batch — built progressively per phase)*
 - **CI pipeline:**
   - PHPStan static analysis
   - Pest test suite (backend)

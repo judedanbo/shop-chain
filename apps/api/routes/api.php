@@ -6,7 +6,10 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\TokenController;
 use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ShopController;
+use App\Http\Controllers\UnitOfMeasureController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -64,6 +67,25 @@ Route::prefix('v1')->group(function () {
                 ->except('store');
             Route::post('branches', [BranchController::class, 'store'])
                 ->middleware('enforce_plan:branchesPerShop');
+
+            // Categories
+            Route::apiResource('categories', CategoryController::class);
+
+            // Units of Measure
+            Route::apiResource('units', UnitOfMeasureController::class);
+
+            // Products
+            Route::apiResource('products', ProductController::class)->except('store');
+            Route::post('products', [ProductController::class, 'store'])
+                ->middleware('enforce_plan:productsPerShop');
+
+            // Product sub-resources
+            Route::patch('products/{product}/price', [ProductController::class, 'updatePrice']);
+            Route::get('products/{product}/price-history', [ProductController::class, 'priceHistory']);
+            Route::get('products/{product}/batches', [ProductController::class, 'batches']);
+            Route::post('products/{product}/batches', [ProductController::class, 'storeBatch']);
+            Route::patch('products/{product}/batches/{batch}', [ProductController::class, 'updateBatch'])
+                ->scopeBindings();
         });
 
     // Admin auth routes
