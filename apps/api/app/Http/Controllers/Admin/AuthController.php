@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Laravel\Passport\RefreshToken;
 use ShopChain\Core\Enums\AdminTeamStatus;
 use ShopChain\Core\Enums\UserStatus;
 
@@ -101,7 +102,7 @@ class AuthController extends Controller
         $token = $request->user()->token();
         $token->revoke();
 
-        \Laravel\Passport\RefreshToken::where('access_token_id', $token->id)->update(['revoked' => true]);
+        RefreshToken::where('access_token_id', $token->id)->update(['revoked' => true]);
 
         $request->user()->sessions()->where('is_current', true)->update([
             'is_current' => false,

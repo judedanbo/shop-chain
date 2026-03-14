@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use ShopChain\Core\Enums\ShopStatus;
+use ShopChain\Core\Enums\ShopType;
 use ShopChain\Core\Enums\SubscriptionStatus;
 
 class Shop extends BaseModel
@@ -33,6 +34,7 @@ class Shop extends BaseModel
     protected function casts(): array
     {
         return [
+            'type' => ShopType::class,
             'tax_rate' => 'decimal:2',
             'status' => ShopStatus::class,
         ];

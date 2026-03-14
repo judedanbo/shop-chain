@@ -1,8 +1,18 @@
 <?php
 
+use App\Http\Middleware\EnforcePlanLimits;
+use App\Http\Middleware\EnsureActiveUser;
+use App\Http\Middleware\EnsureAdmin;
+use App\Http\Middleware\EnsureBranchAccess;
+use App\Http\Middleware\EnsureFeatureActive;
+use App\Http\Middleware\EnsureShopMember;
+use App\Http\Middleware\SetCurrentShop;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Spatie\Permission\Middleware\PermissionMiddleware;
+use Spatie\Permission\Middleware\RoleMiddleware;
+use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -14,16 +24,16 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
-            'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
-            'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
-            'active_user' => \App\Http\Middleware\EnsureActiveUser::class,
-            'admin' => \App\Http\Middleware\EnsureAdmin::class,
-            'set_shop' => \App\Http\Middleware\SetCurrentShop::class,
-            'shop_member' => \App\Http\Middleware\EnsureShopMember::class,
-            'branch_access' => \App\Http\Middleware\EnsureBranchAccess::class,
-            'enforce_plan' => \App\Http\Middleware\EnforcePlanLimits::class,
-            'feature' => \App\Http\Middleware\EnsureFeatureActive::class,
+            'role' => RoleMiddleware::class,
+            'permission' => PermissionMiddleware::class,
+            'role_or_permission' => RoleOrPermissionMiddleware::class,
+            'active_user' => EnsureActiveUser::class,
+            'admin' => EnsureAdmin::class,
+            'set_shop' => SetCurrentShop::class,
+            'shop_member' => EnsureShopMember::class,
+            'branch_access' => EnsureBranchAccess::class,
+            'enforce_plan' => EnforcePlanLimits::class,
+            'feature' => EnsureFeatureActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

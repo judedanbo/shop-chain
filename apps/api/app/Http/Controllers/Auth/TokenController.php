@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Auth\Concerns\IssuesPassportTokens;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Laravel\Passport\RefreshToken;
 
 class TokenController extends Controller
 {
@@ -33,7 +34,7 @@ class TokenController extends Controller
         $token->revoke();
 
         // Revoke refresh tokens for this access token
-        \Laravel\Passport\RefreshToken::where('access_token_id', $token->id)->update(['revoked' => true]);
+        RefreshToken::where('access_token_id', $token->id)->update(['revoked' => true]);
 
         // Mark current session as expired
         $request->user()->sessions()->where('is_current', true)->update([
