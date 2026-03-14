@@ -7,10 +7,17 @@ use App\Http\Controllers\Auth\TokenController;
 use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\GoodsReceiptController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ShopController;
+use App\Http\Controllers\StockAdjustmentController;
+use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\UnitOfMeasureController;
+use App\Http\Controllers\WarehouseController;
 use Illuminate\Support\Facades\Route;
+use ShopChain\Core\Models\GoodsReceipt;
+use ShopChain\Core\Models\StockAdjustment;
+use ShopChain\Core\Models\StockTransfer;
 
 Route::prefix('v1')->group(function () {
     Route::get('/health', fn () => response()->json(['status' => 'ok']));
@@ -86,6 +93,35 @@ Route::prefix('v1')->group(function () {
             Route::post('products/{product}/batches', [ProductController::class, 'storeBatch']);
             Route::patch('products/{product}/batches/{batch}', [ProductController::class, 'updateBatch'])
                 ->scopeBindings();
+
+            // Explicit model bindings
+            Route::model('adjustment', StockAdjustment::class);
+            Route::model('transfer', StockTransfer::class);
+            Route::model('receipt', GoodsReceipt::class);
+
+            // Warehouses
+            Route::apiResource('warehouses', WarehouseController::class)->except('store');
+            Route::post('warehouses', [WarehouseController::class, 'store'])
+                ->middleware('enforce_plan:warehouses');
+
+            // Stock Adjustments
+            Route::get('adjustments', [StockAdjustmentController::class, 'index']);
+            Route::post('adjustments', [StockAdjustmentController::class, 'store']);
+            Route::get('adjustments/{adjustment}', [StockAdjustmentController::class, 'show']);
+            Route::post('adjustments/{adjustment}/approve', [StockAdjustmentController::class, 'approve']);
+            Route::post('adjustments/{adjustment}/reject', [StockAdjustmentController::class, 'reject']);
+
+            // Stock Transfers
+            Route::get('transfers', [StockTransferController::class, 'index']);
+            Route::post('transfers', [StockTransferController::class, 'store']);
+            Route::get('transfers/{transfer}', [StockTransferController::class, 'show']);
+            Route::patch('transfers/{transfer}', [StockTransferController::class, 'update']);
+
+            // Goods Receipts
+            Route::get('goods-receipts', [GoodsReceiptController::class, 'index']);
+            Route::post('goods-receipts', [GoodsReceiptController::class, 'store']);
+            Route::get('goods-receipts/{receipt}', [GoodsReceiptController::class, 'show']);
+            Route::patch('goods-receipts/{receipt}', [GoodsReceiptController::class, 'update']);
         });
 
     // Admin auth routes

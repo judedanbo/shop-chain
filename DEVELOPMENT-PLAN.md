@@ -322,12 +322,16 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(complet
     - `partial` → subset of sub-permissions (e.g., `products.view`, `products.edit` only)
     - `view` → read-only sub-permission (e.g., `products.view` only)
     - `none` → no permissions assigned for that module
-  - [ ] Policy classes delegate to permission checks: *(3 of 12 done — ProductPolicy, CategoryPolicy, UnitOfMeasurePolicy implemented in Phase 2.2)*
+  - [ ] Policy classes delegate to permission checks: *(7 of 12 done — ProductPolicy, CategoryPolicy, UnitOfMeasurePolicy in Phase 2.2; WarehousePolicy, StockAdjustmentPolicy, StockTransferPolicy, GoodsReceiptPolicy in Phase 2.4)*
     - [x] `ProductPolicy` *(products.view, products.edit, products.delete, products.price)*
     - [x] `CategoryPolicy` *(products.view, products.edit — no separate category permissions)*
     - [x] `UnitOfMeasurePolicy` *(products.view, products.edit — no separate unit permissions)*
-    - [ ] `SalePolicy`, `PurchaseOrderPolicy`, `InventoryPolicy`
-    - [ ] `TeamPolicy`, `SettingsPolicy`, `WarehousePolicy`, `SupplierPolicy`
+    - [x] `WarehousePolicy` *(warehouses.view, warehouses.manage)*
+    - [x] `StockAdjustmentPolicy` *(inventory.view, inventory.adjust, inventory.approve)*
+    - [x] `StockTransferPolicy` *(inventory.view, inventory.transfer)*
+    - [x] `GoodsReceiptPolicy` *(inventory.view, inventory.adjust)*
+    - [ ] `SalePolicy`, `PurchaseOrderPolicy`
+    - [ ] `TeamPolicy`, `SettingsPolicy`, `SupplierPolicy`
     - [ ] `DashboardPolicy`, `BarKitchenPolicy`
   - [ ] `AdminPolicy` — separate admin guard with 12 boolean admin permissions
   - [x] `isDecisionMaker` helper for plan limit enforcement: *(implemented in PlanEnforcementService + EnsureBranchAccess)*
@@ -443,38 +447,37 @@ Build the domain logic and API endpoints for the primary business operations. Ea
   - [x] Category product count computed via withCount (not stored)
   - [x] Categories ordered by sort_order then name; units ordered by name
 
-### 2.4 Inventory Management
+### 2.4 Inventory Management ✅
 
-- **Service:** `InventoryService`
-  - **Batch tracking (FEFO):**
-    - Auto batch ID generation (`BT-NNN`)
-    - Lot number generation (`LOT-YYYY-NNNN`)
-    - Batch status computation (active/expired/depleted)
-    - FEFO sorting for consumption
-    - `updateProductFromBatches()` — recomputes stock, expiry, status
-  - **Stock adjustments** (state machine via `spatie/laravel-model-states`):
-    - States: `Pending`, `Approved`, `Rejected` — transitions enforce approval workflow
-    - Transition class `ApproveAdjustment` fires `StockAdjusted` event and updates product stock
-    - Quantity change (positive/negative)
-  - **Stock transfers** (state machine via `spatie/laravel-model-states`):
-    - States: `Pending`, `InTransit`, `Completed`, `Cancelled`
-    - Transition class `CompleteTransfer` auto-updates source/destination stock
-    - Create transfer between warehouses/branches
-  - **Goods Receipts (ad-hoc receiving):**
-    - `GoodsReceiptService` — receive goods outside of PO workflow
-    - Receipt status lifecycle via state machine: `Draft → Completed → Cancelled`
-    - Creates batches if product is batch-tracked
-    - Updates product stock and product location quantities on completion
-    - Receipt ID generation (`GR-YYYYMMDD-NNNN`)
-    - Links items to supplier (optional)
-- **Endpoints:**
-  - `GET/POST /shops/{shop}/adjustments`, `POST /shops/{shop}/adjustments/{adj}/approve|reject`
-  - `GET/POST /shops/{shop}/transfers`, `PATCH /shops/{shop}/transfers/{transfer}`
+- [x] **Services:** `StockAdjustmentService` *(create with Pending status, approve with ProductLocation update in transaction, reject with reason appended to notes)*, `StockTransferService` *(create with source stock validation, ship Pending→InTransit, complete InTransit→Completed with source decrement + dest increment in transaction, cancel non-completed)*, `GoodsReceiptService` *(create with auto-generated reference + items in transaction, complete with batch creation for batch-tracked products + ProductLocation updates)*
+- [x] **Policies:** `StockAdjustmentPolicy` *(viewAny/view → inventory.view, create → inventory.adjust, approve/reject → inventory.approve)*, `StockTransferPolicy` *(viewAny/view → inventory.view, create/update → inventory.transfer)*, `GoodsReceiptPolicy` *(viewAny/view → inventory.view, create/update → inventory.adjust)*
+- [x] **Resources:** `StockAdjustmentResource` (with whenLoaded product/warehouse/branch/creator/approver), `StockTransferResource` (with whenLoaded product/fromWarehouse/toWarehouse/fromBranch/toBranch/creator), `GoodsReceiptResource` (with whenLoaded warehouse/creator/items, whenCounted items), `GoodsReceiptItemResource`, `ProductLocationResource`
+- [x] **Form Requests:** Adjustment (Create/Reject), Transfer (Create with after() source/dest validation, Update with action dispatch), GoodsReceipt (Create with items array, Update with optional complete action)
+- [x] **Factories:** `StockAdjustmentFactory` (states: approved, rejected, damage, theft), `StockTransferFactory` (states: inTransit, completed, cancelled), `GoodsReceiptFactory` (state: completed)
+- [x] **Endpoints (13):**
+  - `GET/POST /shops/{shop}/adjustments`, `GET /shops/{shop}/adjustments/{adjustment}`
+  - `POST /shops/{shop}/adjustments/{adjustment}/approve|reject`
+  - `GET/POST /shops/{shop}/transfers`, `GET/PATCH /shops/{shop}/transfers/{transfer}`
   - `GET/POST /shops/{shop}/goods-receipts`, `GET/PATCH /shops/{shop}/goods-receipts/{receipt}`
-- **Events:**
-  - `StockAdjusted` → update product stock, fire low-stock alert
-  - `StockTransferred` → update locations, notifications
-  - `LowStockDetected` → notification to relevant roles
+  - Route model bindings: `{adjustment}` → StockAdjustment, `{transfer}` → StockTransfer, `{receipt}` → GoodsReceipt
+- [x] **Tests:** StockAdjustmentTest (9), StockTransferTest (9), GoodsReceiptTest (8) — 26 tests passing
+- [x] **Business rules:**
+  - [x] Stock adjustments use explicit service methods with status checks (no state machine — 3 states too simple)
+  - [x] Approve creates/updates ProductLocation via firstOrCreate + increment in DB transaction
+  - [x] Reject appends rejection reason to notes field
+  - [x] Transfer creation validates source ProductLocation has sufficient stock
+  - [x] Transfer completion decrements source and increments/creates destination ProductLocation in transaction
+  - [x] Cancel allowed from any status except Completed
+  - [x] Goods receipt auto-generates sequential references (`GR-YYYYMMDD-NNNN`) per shop per day
+  - [x] Completion creates Batch records for batch-tracked products with batch_number
+  - [x] Completion updates/creates ProductLocation quantities per item
+  - [x] QueryBuilder filtering on all list endpoints (status, product_id, type, warehouse_id, branch_id)
+  - [x] Permission-based access: viewer can view only, inventory_officer can adjust/transfer but not approve, owner/manager have full access
+- **Deferred items:**
+  - [ ] `StockAdjusted`/`StockTransferred`/`LowStockDetected` events *(deferred to Phase 7 — no listeners exist yet)*
+  - [ ] State machines via `spatie/laravel-model-states` *(deferred to Phase 2.5 where PO lifecycle has 7 states)*
+  - [ ] Batch tracking FEFO integration *(batch status computation, FEFO consumption — deferred to Phase 3.1 POS stock decrement)*
+  - [ ] Auto-computed product stock status from ProductLocation totals *(deferred)*
 
 ### 2.5 Suppliers & Purchase Orders
 
@@ -507,16 +510,23 @@ Build the domain logic and API endpoints for the primary business operations. Ea
   - Supplier rating (1.0–5.0)
   - Plan limit enforcement for supplier count
 
-### 2.6 Warehouse Management
+### 2.6 Warehouse Management ✅
 
-- **Service:** `WarehouseService`
-- **Endpoints:**
-  - `GET/POST/PATCH /shops/{shop}/warehouses/{warehouse?}`
-- **Business rules:**
-  - Warehouse creation enforces plan limit
-  - Zones as text array
-  - Capacity tracking
-  - Product location inventory (stock per product per warehouse/branch)
+- [x] **Service:** `WarehouseService` *(create, update, delete with stock-exists guard — rejects deletion if ProductLocations with quantity > 0 exist)*
+- [x] **Policy:** `WarehousePolicy` *(viewAny/view → warehouses.view, create/update/delete → warehouses.manage)*
+- [x] **Resource:** `WarehouseResource` (with whenCounted productLocations)
+- [x] **Form Requests:** Warehouse (Create/Update — name unique per shop, WarehouseType/WarehouseStatus enum validation, zones array)
+- [x] **Factory:** `WarehouseFactory` (states: inactive, secondary)
+- [x] **Endpoints (5):**
+  - `GET/POST /shops/{shop}/warehouses`, `GET/PUT|PATCH/DELETE /shops/{shop}/warehouses/{warehouse}`
+  - Warehouse creation enforces plan limit via `enforce_plan:warehouses` middleware
+- [x] **Tests:** WarehouseCrudTest (8) — 8 tests passing
+- [x] **Business rules:**
+  - [x] Warehouse creation enforces plan limit (free=0, basic=1, max=unlimited)
+  - [x] Unique warehouse name per shop
+  - [x] Cannot delete warehouse with stock (ProductLocations with quantity > 0)
+  - [x] Zones as text array, capacity as integer
+  - [x] Permission-based access: viewer can view only, manager/inventory_manager can manage
 
 ---
 
@@ -1141,7 +1151,7 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000
 - **Integration tests (backend):** Multi-step workflows (PO → receive → stock update)
 - **Unit tests (frontend):** Vitest + `@vue/test-utils` for Vue component and composable tests
 - **E2E tests:** Playwright for critical user flows (replaces Laravel Dusk — runs against Nuxt app + API)
-- **Test factories:** All 52 models with realistic fake data *(7 of 52 done: Shop, Branch, ShopMember, Product, Category, UnitOfMeasure, Batch — built progressively per phase)*
+- **Test factories:** All 52 models with realistic fake data *(11 of 52 done: Shop, Branch, ShopMember, Product, Category, UnitOfMeasure, Batch, Warehouse, StockAdjustment, StockTransfer, GoodsReceipt — built progressively per phase)*
 - **CI pipeline:**
   - PHPStan static analysis
   - Pest test suite (backend)

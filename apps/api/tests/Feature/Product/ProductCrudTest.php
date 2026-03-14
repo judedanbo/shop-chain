@@ -2,10 +2,8 @@
 
 use ShopChain\Core\Enums\ProductStatus;
 use ShopChain\Core\Enums\ShopRole;
-use ShopChain\Core\Enums\SubscriptionStatus;
 use ShopChain\Core\Models\Category;
 use ShopChain\Core\Models\Product;
-use ShopChain\Core\Models\Subscription;
 use ShopChain\Core\Models\UnitOfMeasure;
 
 it('lists products for a shop', function () {

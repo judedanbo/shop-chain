@@ -1,6 +1,5 @@
 <?php
 
-use ShopChain\Core\Enums\ShopRole;
 use ShopChain\Core\Models\Product;
 use ShopChain\Core\Models\UnitOfMeasure;
 
