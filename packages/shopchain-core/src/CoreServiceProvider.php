@@ -20,7 +20,9 @@ use ShopChain\Core\Models\Till;
 use ShopChain\Core\Models\UnitOfMeasure;
 use ShopChain\Core\Models\Warehouse;
 use ShopChain\Core\Policies\BranchPolicy;
+use ShopChain\Core\Models\HeldOrder;
 use ShopChain\Core\Models\KitchenOrder;
+use ShopChain\Core\Policies\HeldOrderPolicy;
 use ShopChain\Core\Policies\KitchenOrderPolicy;
 use ShopChain\Core\Policies\CategoryPolicy;
 use ShopChain\Core\Policies\CustomerPolicy;
@@ -72,6 +74,7 @@ class CoreServiceProvider extends ServiceProvider
         Gate::policy(Customer::class, CustomerPolicy::class);
         Gate::policy(PosHeldOrder::class, PosHeldOrderPolicy::class);
         Gate::policy(Till::class, TillPolicy::class);
+        Gate::policy(HeldOrder::class, HeldOrderPolicy::class);
         Gate::policy(KitchenOrder::class, KitchenOrderPolicy::class);
 
         if ($this->app->runningInConsole()) {

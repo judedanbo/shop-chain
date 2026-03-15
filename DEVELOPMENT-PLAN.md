@@ -754,15 +754,26 @@ Real-time order flow between bar POS, kitchen display, and till management.
   - Table number filter (1): partial match filter
   - Authorization (3): bar_manager, waiter allowed; viewer forbidden
 
-### 4.3 Bar Held Orders (Kitchen Context)
+### 4.3 Bar Held Orders (Kitchen Context) ✅
 
-- Uses `held_orders` / `held_order_items` tables (distinct from retail POS `pos_held_orders`)
-- Park in-progress bar orders per till
-- Table assignment
-- Label/note support
-- Recall and resume workflow
-- **Endpoints:**
-  - `POST/GET/DELETE /shops/{shop}/held-orders`, `POST /shops/{shop}/held-orders/{id}/recall`
+- [x] Uses `held_orders` / `held_order_items` tables (distinct from retail POS `pos_held_orders`)
+- [x] Park in-progress bar orders per till with table assignment, label/note support
+- [x] Recall and discard workflow (mirrors PosHeldOrderController pattern — inline DB::transaction, no service)
+- [x] **Policy:** `HeldOrderPolicy` *(kitchen.view for viewAny/view, kitchen.manage OR pos.access for create/delete)*
+- [x] **Resource:** `HeldOrderResource` (till, items with product id/name/price/sku, items_count)
+- [x] **Factory:** `HeldOrderFactory` (3 states: takeaway, withTable, withLabel), `HeldOrderItemFactory`
+- [x] **Form Request:** `CreateHeldOrderRequest` (till_id/products scoped to shop, order_type enum, items with notes)
+- [x] **Controller:** `HeldOrderController` (5 actions: index, store, show, recall, destroy)
+- [x] **Endpoints:**
+  - `GET /shops/{shop}/held-orders` — filter by till_id, ordered by held_at desc
+  - `POST /shops/{shop}/held-orders` — create held order with items (201)
+  - `GET /shops/{shop}/held-orders/{heldOrder}` — detail with items.product, till
+  - `POST /shops/{shop}/held-orders/{heldOrder}/recall` — return data then delete
+  - `DELETE /shops/{shop}/held-orders/{heldOrder}` — discard (204)
+- [x] **Tests:** HeldOrderTest (12 tests)
+  - CRUD (7): create with items/table/label, item notes, till-shop validation, items required, list filtered by till_id, show with product details, destroy
+  - Recall (2): recall returns data then deletes, recall includes product data
+  - Authorization (3): bar_manager create+manage, waiter create (pos.access), viewer forbidden
 
 ---
 

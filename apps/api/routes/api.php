@@ -21,6 +21,7 @@ use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TillController;
 use App\Http\Controllers\TillPaymentController;
+use App\Http\Controllers\HeldOrderController;
 use App\Http\Controllers\KitchenOrderController;
 use App\Http\Controllers\UnitOfMeasureController;
 use App\Http\Controllers\WarehouseController;
@@ -202,6 +203,13 @@ Route::prefix('v1')->group(function () {
             Route::post('kitchen-orders/{kitchenOrder}/cancel', [KitchenOrderController::class, 'cancel']);
             Route::post('kitchen-orders/{kitchenOrder}/items/{item}/serve', [KitchenOrderController::class, 'serveItem'])
                 ->scopeBindings();
+
+            // Bar Held Orders
+            Route::get('held-orders', [HeldOrderController::class, 'index']);
+            Route::post('held-orders', [HeldOrderController::class, 'store']);
+            Route::get('held-orders/{heldOrder}', [HeldOrderController::class, 'show']);
+            Route::post('held-orders/{heldOrder}/recall', [HeldOrderController::class, 'recall']);
+            Route::delete('held-orders/{heldOrder}', [HeldOrderController::class, 'destroy']);
         });
 
     // Admin auth routes
