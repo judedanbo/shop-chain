@@ -29,9 +29,10 @@ class KitchenOrderController extends Controller
                 AllowedFilter::exact('till_id'),
                 AllowedFilter::exact('status'),
                 AllowedFilter::exact('bar_fulfilled'),
+                AllowedFilter::partial('table_number'),
             ])
             ->allowedSorts(['created_at'])
-            ->allowedIncludes(['items.product', 'server', 'till'])
+            ->allowedIncludes(['items.product', 'server', 'till', 'tillPayments'])
             ->withCount('items')
             ->defaultSort('-created_at')
             ->paginate($request->integer('per_page', 15))

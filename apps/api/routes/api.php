@@ -20,6 +20,7 @@ use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TillController;
+use App\Http\Controllers\TillPaymentController;
 use App\Http\Controllers\KitchenOrderController;
 use App\Http\Controllers\UnitOfMeasureController;
 use App\Http\Controllers\WarehouseController;
@@ -186,6 +187,8 @@ Route::prefix('v1')->group(function () {
             Route::post('tills/open', [TillController::class, 'open']);
             Route::get('tills/{till}', [TillController::class, 'show']);
             Route::post('tills/{till}/close', [TillController::class, 'close']);
+            Route::get('tills/{till}/payments', [TillPaymentController::class, 'index']);
+            Route::post('tills/{till}/payments', [TillPaymentController::class, 'store']);
 
             // Kitchen Orders
             Route::get('kitchen-orders', [KitchenOrderController::class, 'index']);

@@ -28,4 +28,9 @@ class TillPolicy
     {
         return $user->hasPermissionTo('pos.access');
     }
+
+    public function recordPayment(User $user, Till $till): bool
+    {
+        return $user->hasPermissionTo('pos.access');
+    }
 }

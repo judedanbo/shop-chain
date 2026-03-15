@@ -722,11 +722,37 @@ Real-time order flow between bar POS, kitchen display, and till management.
   - [ ] Real-time broadcasting via Reverb (`KitchenOrderPlaced`, `KitchenOrderStatusChanged`, `KitchenItemReady`)
   - [ ] State machines via `spatie/laravel-model-states` (using simple enum validation for now)
 
-### 4.2 Bar POS Extensions
+### 4.2 Bar POS Extensions ✅
 
-- [ ] Per-till ordering with separate kitchen/bar routing
-- [x] Products with `skip_kitchen = true` bypass kitchen queue *(implemented in KitchenOrderService.placeOrder)*
-- [ ] Order grouping by table number
+- [x] **Service:** `TillPaymentService`
+  - [x] `recordPayment(Till, KitchenOrder, array)` — validates till is active, order belongs to till, order is payable (completed/served), calculates change for cash payments
+- [x] **Enhanced `TillService.closeTill`:**
+  - [x] Rejects close with unresolved orders (pending/accepted) — throws ValidationException
+  - [x] Aggregates non-rejected/non-cancelled kitchen orders into a Sale with `source: 'bar'` via `DB::transaction()`
+  - [x] Creates SaleItems from kitchen order items, SalePayments from TillPayments (TillPayMethod→PayMethod mapping)
+  - [x] Links kitchen orders to aggregated sale via `sale_id`
+  - [x] Applies till-level discount (percent or fixed) to aggregated sale total
+- [x] **Enhanced `TillService.getTillSummary`:**
+  - [x] Includes till payments (bar context) alongside retail sale payments in cash/card/momo reconciliation
+  - [x] Added `kitchen_orders_count` and `till_payments_total` to summary output
+  - [x] Filters retail sales by `source: 'pos'` to avoid double-counting after bar sale aggregation
+- [x] **Policy:** `TillPolicy.recordPayment` *(pos.access)*
+- [x] **Resource:** `TillPaymentResource`
+- [x] **Factory:** `TillPaymentFactory` (cash default + card/momo states)
+- [x] **Form Request:** `RecordTillPaymentRequest`
+- [x] **Controller:** `TillPaymentController` (index, store)
+- [x] **Endpoints:**
+  - `GET /shops/{shop}/tills/{till}/payments` — QueryBuilder with filters (method, order_id)
+  - `POST /shops/{shop}/tills/{till}/payments` — record payment (201)
+- [x] Products with `skip_kitchen = true` bypass kitchen queue *(implemented in KitchenOrderService.placeOrder, Phase 4.1)*
+- [x] Order grouping by table number *(added `table_number` partial filter to kitchen orders index)*
+- [x] `KitchenOrderResource` — added `till_payments` field; `KitchenOrderController` — added `tillPayments` include
+- [x] **Tests:** TillPaymentTest (18 tests)
+  - Payment recording (7): cash/card/momo, change calculation, closed till rejection, pending order rejection, wrong till rejection
+  - Payment listing (2): list payments, filter by method
+  - Enhanced till close (5): sale aggregation, sale payments from till payments, kitchen order linking, unresolved order rejection, no sale for rejected/cancelled only
+  - Table number filter (1): partial match filter
+  - Authorization (3): bar_manager, waiter allowed; viewer forbidden
 
 ### 4.3 Bar Held Orders (Kitchen Context)
 
@@ -1294,7 +1320,7 @@ Phase 3: Sales & POS ──── depends on Phase 2 ───────┤
                                                      │
 Phase 4: Kitchen ──── depends on Phase 3 ───────────┤
   ├─ 4.1 Kitchen Orders ✅                           │
-  ├─ 4.2 Bar POS                                     │
+  ├─ 4.2 Bar POS ✅                                  │
   └─ 4.3 Held Orders                                 │
                                                      │
 Phase 5: Customers ──── depends on Phase 3 ─────────┤ (can parallel with 4)
@@ -1361,7 +1387,7 @@ Phase 14: Infrastructure ──── Phase 1 + ongoing ─────┘
 | Purchase Orders                                    | 7         |
 | Inventory (adjustments, transfers, goods receipts) | 12        |
 | Suppliers, Customers, Warehouses, Team             | 14        |
-| Bar/Kitchen (orders, bar held orders)              | 10 + held |
+| Bar/Kitchen (orders, payments, bar held orders)    | 12 + held |
 | Notifications & Preferences                        | 9         |
 | Billing, Subscriptions & Exemptions                | 10        |
 | Admin (all groups incl. investors, forensics)      | ~50       |

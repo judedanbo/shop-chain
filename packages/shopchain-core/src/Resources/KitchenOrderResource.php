@@ -45,6 +45,7 @@ class KitchenOrderResource extends JsonResource
             'branch' => new BranchResource($this->whenLoaded('branch')),
             'till' => new TillResource($this->whenLoaded('till')),
             'items' => KitchenOrderItemResource::collection($this->whenLoaded('items')),
+            'till_payments' => TillPaymentResource::collection($this->whenLoaded('tillPayments')),
             'items_count' => $this->whenCounted('items'),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

@@ -71,4 +71,9 @@ class Till extends BaseModel
     {
         return $this->hasMany(KitchenOrder::class);
     }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(TillPayment::class);
+    }
 }
