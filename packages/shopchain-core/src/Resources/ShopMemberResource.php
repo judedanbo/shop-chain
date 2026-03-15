@@ -34,6 +34,11 @@ class ShopMemberResource extends JsonResource
                 'name' => $branch->name,
             ])),
             'branches_count' => $this->whenCounted('branches'),
+            'invite_expires_at' => $this->invite_expires_at,
+            'invited_by' => $this->whenLoaded('inviter', fn () => [
+                'id' => $this->inviter->id,
+                'name' => $this->inviter->name,
+            ]),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

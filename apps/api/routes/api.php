@@ -9,6 +9,7 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\GoodsReceiptController;
+use App\Http\Controllers\InviteController;
 use App\Http\Controllers\PosHeldOrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseOrderController;
@@ -39,6 +40,11 @@ Route::prefix('v1')->group(function () {
 
     Route::get('/verify/{token}', SaleVerificationController::class)
         ->middleware('throttle:receipt-verify');
+
+    Route::prefix('invite')->middleware('throttle:invite')->group(function () {
+        Route::get('/{token}', [InviteController::class, 'show']);
+        Route::post('/{token}/accept', [InviteController::class, 'accept']);
+    });
 
     // Public auth routes
     Route::prefix('auth')->middleware('throttle:auth')->group(function () {
@@ -215,6 +221,8 @@ Route::prefix('v1')->group(function () {
             Route::patch('team/{member}/role', [TeamController::class, 'changeRole']);
             Route::patch('team/{member}/status', [TeamController::class, 'updateStatus']);
             Route::patch('team/{member}/branches', [TeamController::class, 'assignBranches']);
+            Route::post('team/{member}/resend-invite', [TeamController::class, 'resendInvite']);
+            Route::post('team/{member}/cancel-invite', [TeamController::class, 'cancelInvite']);
             Route::delete('team/{member}', [TeamController::class, 'destroy']);
 
             // Bar Held Orders

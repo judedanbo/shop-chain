@@ -14,6 +14,10 @@ return [
 
     'currency' => env('SHOPCHAIN_CURRENCY', 'GHS'),
 
+    'invite_expiry_days' => env('SHOPCHAIN_INVITE_EXPIRY_DAYS', 7),
+
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
+
     /*
     |--------------------------------------------------------------------------
     | Ghana Regions

@@ -20,6 +20,9 @@ class ShopMember extends BaseModel
         'shop_id',
         'role',
         'status',
+        'invite_token',
+        'invite_expires_at',
+        'invited_by',
         'joined_at',
     ];
 
@@ -28,6 +31,7 @@ class ShopMember extends BaseModel
         return [
             'role' => ShopRole::class,
             'status' => MemberStatus::class,
+            'invite_expires_at' => 'datetime',
             'joined_at' => 'datetime',
         ];
     }
@@ -41,6 +45,11 @@ class ShopMember extends BaseModel
         return $this->belongsTo(\App\Models\User::class);
     }
 
+    public function inviter(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'invited_by');
+    }
+
     public function branchMembers(): HasMany
     {
         return $this->hasMany(BranchMember::class, 'member_id');
@@ -51,5 +60,10 @@ class ShopMember extends BaseModel
         return $this->belongsToMany(Branch::class, 'branch_members', 'member_id', 'branch_id')
             ->withPivot('assigned_at')
             ->withTimestamps();
+    }
+
+    public function isInviteExpired(): bool
+    {
+        return $this->invite_expires_at !== null && $this->invite_expires_at->isPast();
     }
 }

@@ -3,7 +3,9 @@
 namespace ShopChain\Core\Services;
 
 use App\Models\User;
+use App\Notifications\TeamInviteNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Laravel\Pennant\Feature;
 use ShopChain\Core\Enums\MemberStatus;
@@ -39,7 +41,7 @@ class TeamService
             ]);
         }
 
-        return DB::transaction(function () use ($shop, $data, $newRole) {
+        $member = DB::transaction(function () use ($shop, $inviter, $data, $newRole) {
             $user = User::where('email', $data['email'])->first();
 
             if (! $user) {
@@ -55,6 +57,9 @@ class TeamService
                 'shop_id' => $shop->id,
                 'role' => $newRole,
                 'status' => MemberStatus::Invited,
+                'invite_token' => Str::random(64),
+                'invite_expires_at' => now()->addDays(config('shopchain.invite_expiry_days')),
+                'invited_by' => $inviter->id,
             ]);
 
             app(PermissionRegistrar::class)->setPermissionsTeamId($shop->id);
@@ -66,6 +71,10 @@ class TeamService
 
             return $member->load('user', 'branches');
         });
+
+        $member->user->notify(new TeamInviteNotification($member, $shop, $inviter));
+
+        return $member;
     }
 
     /**
@@ -155,6 +164,100 @@ class TeamService
             $member->user->removeRole($member->role->value);
 
             $member->update(['status' => MemberStatus::Removed]);
+        });
+    }
+
+    /**
+     * @return array{member: ShopMember, user: User, is_new_user: bool}
+     *
+     * @throws ValidationException
+     */
+    public function acceptInvite(string $token, ?string $password): array
+    {
+        $member = ShopMember::withoutGlobalScopes()
+            ->where('invite_token', $token)
+            ->where('status', MemberStatus::Invited)
+            ->first();
+
+        if (! $member) {
+            throw ValidationException::withMessages([
+                'token' => ['Invalid or already used invitation.'],
+            ]);
+        }
+
+        if ($member->isInviteExpired()) {
+            throw ValidationException::withMessages([
+                'token' => ['This invitation has expired.'],
+            ]);
+        }
+
+        $user = $member->user;
+        $isNewUser = $user->last_active_at === null;
+
+        if ($isNewUser && empty($password)) {
+            throw ValidationException::withMessages([
+                'password' => ['Password is required to set up your account.'],
+            ]);
+        }
+
+        if ($isNewUser) {
+            $user->update(['password' => $password, 'status' => \ShopChain\Core\Enums\UserStatus::Active]);
+        }
+
+        $member->update([
+            'status' => MemberStatus::Active,
+            'joined_at' => now(),
+            'invite_token' => null,
+            'invite_expires_at' => null,
+        ]);
+
+        return ['member' => $member->fresh()->load('user'), 'user' => $user->fresh(), 'is_new_user' => $isNewUser];
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    public function resendInvite(ShopMember $member, User $actor): ShopMember
+    {
+        if ($member->status !== MemberStatus::Invited) {
+            throw ValidationException::withMessages([
+                'member' => ['Only pending invitations can be resent.'],
+            ]);
+        }
+
+        $member->update([
+            'invite_token' => Str::random(64),
+            'invite_expires_at' => now()->addDays(config('shopchain.invite_expiry_days')),
+        ]);
+
+        $shop = Shop::withoutGlobalScopes()->find($member->shop_id);
+        $member->user->notify(new TeamInviteNotification($member->fresh(), $shop, $actor));
+
+        return $member->fresh()->load('user', 'branches');
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    public function cancelInvite(ShopMember $member, User $actor): void
+    {
+        if ($member->status !== MemberStatus::Invited) {
+            throw ValidationException::withMessages([
+                'member' => ['Only pending invitations can be cancelled.'],
+            ]);
+        }
+
+        $shop = Shop::withoutGlobalScopes()->find($member->shop_id);
+
+        DB::transaction(function () use ($member, $shop) {
+            app(PermissionRegistrar::class)->setPermissionsTeamId($shop->id);
+            $member->user->removeRole($member->role->value);
+
+            $member->update([
+                'status' => MemberStatus::Removed,
+                'invite_token' => null,
+                'invite_expires_at' => null,
+            ]);
         });
     }
 

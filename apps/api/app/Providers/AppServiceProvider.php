@@ -74,6 +74,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('receipt-verify', function (Request $request) {
             return Limit::perMinute(30)->by($request->ip());
         });
+
+        RateLimiter::for('invite', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
     }
 
     /**

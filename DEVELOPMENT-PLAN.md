@@ -827,14 +827,30 @@ Real-time order flow between bar POS, kitchen display, and till management.
   - [x] Cannot self-suspend or self-remove
   - [x] Branch assignment validates branches belong to shop
 - **Deferred items:**
-  - [ ] Email invitation flow (Phase 6.2)
+  - [x] Email invitation flow (Phase 6.2)
 
-### 6.2 Invitation Flow
+### 6.2 Invitation Flow ✅
 
-- Email invitation via Laravel notifications
-- Invite link with signed URL
-- Accept flow: existing user joins shop, new user registers then joins
-- Invite expiry (configurable, default 7 days)
+- [x] **Migration:** Added `invite_token`, `invite_expires_at`, `invited_by` columns to `shop_members`
+- [x] **Config:** Added `invite_expiry_days` (default 7) and `frontend_url` to `shopchain.php`
+- [x] **Model:** `ShopMember` — new fillables, `invite_expires_at` cast, `inviter()` relationship, `isInviteExpired()` helper
+- [x] **Notification:** `TeamInviteNotification` *(queued mail with invite link, role, expiry info)*
+- [x] **Service:** `TeamService` enhancements:
+  - [x] `inviteMember()` — now generates `invite_token` (64 chars), `invite_expires_at`, `invited_by`, dispatches `TeamInviteNotification`
+  - [x] `acceptInvite(token, password)` — activates membership; new users set password + get Passport tokens, existing users activate without tokens
+  - [x] `resendInvite(member, actor)` — regenerates token/expiry, resends notification
+  - [x] `cancelInvite(member, actor)` — revokes role, sets status=Removed, clears token
+- [x] **Request:** `AcceptInviteRequest` *(conditionally requires password for new users: min:8, confirmed)*
+- [x] **Controller:** `InviteController` *(uses `IssuesPassportTokens` trait)*
+- [x] **Public endpoints:**
+  - [x] `GET /invite/{token}` — show invite details (shop_name, role, email, inviter_name, expires_at, requires_password)
+  - [x] `POST /invite/{token}/accept` — accept invite; 201 with tokens for new users, 200 for existing
+- [x] **Shop-scoped endpoints:**
+  - [x] `POST /shops/{shop}/team/{member}/resend-invite` — requires `team.manage`
+  - [x] `POST /shops/{shop}/team/{member}/cancel-invite` — requires `team.manage`
+- [x] **Resource:** `ShopMemberResource` — added `invite_expires_at`, `invited_by` (whenLoaded)
+- [x] **Rate limiting:** `throttle:invite` (10/min per IP) on public invite endpoints
+- [x] **Tests:** InvitationFlowTest (20 tests) — invite email, view invite (valid/invalid/expired/accepted), accept new user (password/tokens/validation), accept existing user, resend (regenerate/validation/auth), cancel (remove/validation/auth)
 
 ---
 

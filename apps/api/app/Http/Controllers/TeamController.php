@@ -94,6 +94,24 @@ class TeamController extends Controller
         return (new ShopMemberResource($member))->response();
     }
 
+    public function resendInvite(Request $request, Shop $shop, ShopMember $member): JsonResponse
+    {
+        $this->authorize('create', ShopMember::class);
+
+        $member = $this->teamService->resendInvite($member, $request->user());
+
+        return (new ShopMemberResource($member))->response();
+    }
+
+    public function cancelInvite(Request $request, Shop $shop, ShopMember $member): JsonResponse
+    {
+        $this->authorize('create', ShopMember::class);
+
+        $this->teamService->cancelInvite($member, $request->user());
+
+        return response()->json(null, 204);
+    }
+
     public function destroy(Request $request, Shop $shop, ShopMember $member): JsonResponse
     {
         $this->authorize('delete', $member);
