@@ -61,7 +61,7 @@ class PurchaseOrderController extends Controller
     {
         $this->authorize('update', $po);
 
-        $po = $this->poService->submitPO($po);
+        $po = $this->poService->submitPO($po, $request->user());
 
         return (new PurchaseOrderResource($po))->response();
     }
@@ -79,7 +79,7 @@ class PurchaseOrderController extends Controller
     {
         $this->authorize('update', $po);
 
-        $po = $this->poService->markShipped($po);
+        $po = $this->poService->markShipped($po, $request->user());
 
         return (new PurchaseOrderResource($po))->response();
     }
@@ -88,7 +88,7 @@ class PurchaseOrderController extends Controller
     {
         $this->authorize('update', $po);
 
-        $po = $this->poService->receivePO($po, $request->validated('items'));
+        $po = $this->poService->receivePO($po, $request->validated('items'), $request->user());
 
         return (new PurchaseOrderResource($po))->response();
     }
@@ -97,7 +97,7 @@ class PurchaseOrderController extends Controller
     {
         $this->authorize('update', $po);
 
-        $po = $this->poService->cancelPO($po);
+        $po = $this->poService->cancelPO($po, $request->user());
 
         return (new PurchaseOrderResource($po))->response();
     }

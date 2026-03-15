@@ -10,6 +10,7 @@ use Illuminate\Validation\ValidationException;
 use Laravel\Pennant\Feature;
 use ShopChain\Core\Enums\MemberStatus;
 use ShopChain\Core\Enums\ShopRole;
+use ShopChain\Core\Events\TeamMemberJoined;
 use ShopChain\Core\Models\Branch;
 use ShopChain\Core\Models\BranchMember;
 use ShopChain\Core\Models\Shop;
@@ -211,7 +212,12 @@ class TeamService
             'invite_expires_at' => null,
         ]);
 
-        return ['member' => $member->fresh()->load('user'), 'user' => $user->fresh(), 'is_new_user' => $isNewUser];
+        $member = $member->fresh()->load('user');
+
+        $shop = Shop::withoutGlobalScopes()->find($member->shop_id);
+        event(new TeamMemberJoined($shop, $member, $user));
+
+        return ['member' => $member, 'user' => $user->fresh(), 'is_new_user' => $isNewUser];
     }
 
     /**

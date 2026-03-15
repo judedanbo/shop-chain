@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use ShopChain\Core\Enums\AdjustmentStatus;
+use ShopChain\Core\Events\AdjustmentPending;
 use ShopChain\Core\Models\ProductLocation;
 use ShopChain\Core\Models\Shop;
 use ShopChain\Core\Models\StockAdjustment;
@@ -17,12 +18,16 @@ class StockAdjustmentService
      */
     public function createAdjustment(Shop $shop, array $data, User $user): StockAdjustment
     {
-        return StockAdjustment::create([
+        $adjustment = StockAdjustment::create([
             ...$data,
             'shop_id' => $shop->id,
             'status' => AdjustmentStatus::Pending,
             'created_by' => $user->id,
         ]);
+
+        event(new AdjustmentPending($shop, $adjustment, $user));
+
+        return $adjustment;
     }
 
     /**

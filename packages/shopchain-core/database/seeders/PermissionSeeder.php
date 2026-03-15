@@ -70,6 +70,10 @@ class PermissionSeeder extends Seeder
             // Warehouses (2)
             'warehouses.view',
             'warehouses.manage',
+            // Notifications (3)
+            'notifications.view',
+            'notifications.manage',
+            'notifications.preferences',
         ];
 
         // --- Admin Permissions (12) ---
@@ -114,6 +118,7 @@ class PermissionSeeder extends Seeder
                 'settings.view',
                 'branches.view',
                 'warehouses.view', 'warehouses.manage',
+                'notifications.view', 'notifications.manage', 'notifications.preferences',
             ],
             'bar_manager' => [
                 'products.view',
@@ -123,15 +128,18 @@ class PermissionSeeder extends Seeder
                 'kitchen.view', 'kitchen.manage',
                 'customers.view',
                 'reports.view',
+                'notifications.view', 'notifications.manage', 'notifications.preferences',
             ],
             'waiter' => [
                 'pos.access',
                 'kitchen.view',
                 'products.view',
+                'notifications.view', 'notifications.manage', 'notifications.preferences',
             ],
             'kitchen_staff' => [
                 'kitchen.view', 'kitchen.manage',
                 'products.view',
+                'notifications.view', 'notifications.manage', 'notifications.preferences',
             ],
             'inventory_manager' => [
                 'products.view', 'products.edit',
@@ -140,6 +148,7 @@ class PermissionSeeder extends Seeder
                 'purchase_orders.view', 'purchase_orders.create', 'purchase_orders.approve',
                 'warehouses.view', 'warehouses.manage',
                 'reports.view',
+                'notifications.view', 'notifications.manage', 'notifications.preferences',
             ],
             'inventory_officer' => [
                 'products.view',
@@ -147,18 +156,21 @@ class PermissionSeeder extends Seeder
                 'suppliers.view',
                 'purchase_orders.view',
                 'warehouses.view',
+                'notifications.view', 'notifications.manage', 'notifications.preferences',
             ],
             'salesperson' => [
                 'pos.access',
                 'products.view',
                 'sales.view',
                 'customers.view', 'customers.edit',
+                'notifications.view', 'notifications.manage', 'notifications.preferences',
             ],
             'cashier' => [
                 'pos.access', 'pos.discount',
                 'products.view',
                 'sales.view',
                 'customers.view',
+                'notifications.view', 'notifications.manage', 'notifications.preferences',
             ],
             'accountant' => [
                 'sales.view', 'sales.export',
@@ -167,6 +179,7 @@ class PermissionSeeder extends Seeder
                 'inventory.view',
                 'purchase_orders.view',
                 'customers.view',
+                'notifications.view', 'notifications.manage', 'notifications.preferences',
             ],
             'viewer' => [
                 'products.view',
@@ -180,6 +193,7 @@ class PermissionSeeder extends Seeder
                 'warehouses.view',
                 'team.view',
                 'settings.view',
+                'notifications.view', 'notifications.manage', 'notifications.preferences',
             ],
         ];
 

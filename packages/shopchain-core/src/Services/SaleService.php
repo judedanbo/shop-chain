@@ -11,6 +11,11 @@ use ShopChain\Core\Enums\DiscountType;
 use ShopChain\Core\Enums\PayMethod;
 use ShopChain\Core\Enums\SaleSource;
 use ShopChain\Core\Enums\SaleStatus;
+use ShopChain\Core\Events\DiscountApplied;
+use ShopChain\Core\Events\ReversalDirect;
+use ShopChain\Core\Events\ReversalRequested;
+use ShopChain\Core\Events\ReversalResolved;
+use ShopChain\Core\Events\SaleCompleted;
 use ShopChain\Core\Models\Batch;
 use ShopChain\Core\Models\Customer;
 use ShopChain\Core\Models\Product;
@@ -25,7 +30,7 @@ class SaleService
      */
     public function createSale(Shop $shop, array $data, User $user): Sale
     {
-        return DB::transaction(function () use ($shop, $data, $user) {
+        $sale = DB::transaction(function () use ($shop, $data, $user) {
             // 1. Build items: validate stock at branch
             $cartItems = [];
             $subtotal = 0;
@@ -251,6 +256,14 @@ class SaleService
             // 14. Return sale with relations
             return $sale->load(['items.product', 'payments', 'customer']);
         });
+
+        event(new SaleCompleted($shop, $sale, $user));
+
+        if ($sale->discount > 0 && $sale->discount_type === DiscountType::Percent && $sale->discount_input) {
+            event(new DiscountApplied($shop, $sale, $user, (float) $sale->discount_input, (int) $sale->discount));
+        }
+
+        return $sale;
     }
 
     public function reverseSale(Sale $sale, User $user, string $reason): Sale
@@ -261,11 +274,16 @@ class SaleService
             ]);
         }
 
-        return DB::transaction(function () use ($sale, $user, $reason) {
+        $result = DB::transaction(function () use ($sale, $user, $reason) {
             $this->executeReversal($sale, $user, $reason);
 
             return $sale->load(['items.product', 'payments', 'customer']);
         });
+
+        $shop = Shop::withoutGlobalScopes()->find($sale->shop_id);
+        event(new ReversalDirect($shop, $result, $user, $reason));
+
+        return $result;
     }
 
     public function requestReversal(Sale $sale, User $user, string $reason): Sale
@@ -283,6 +301,9 @@ class SaleService
             'reversal_reason' => $reason,
         ]);
 
+        $shop = Shop::withoutGlobalScopes()->find($sale->shop_id);
+        event(new ReversalRequested($shop, $sale, $user, $reason));
+
         return $sale;
     }
 
@@ -294,11 +315,16 @@ class SaleService
             ]);
         }
 
-        return DB::transaction(function () use ($sale, $user) {
+        $result = DB::transaction(function () use ($sale, $user) {
             $this->executeReversal($sale, $user, $sale->reversal_reason);
 
             return $sale->load(['items.product', 'payments', 'customer']);
         });
+
+        $shop = Shop::withoutGlobalScopes()->find($sale->shop_id);
+        event(new ReversalResolved($shop, $result, $user, 'approved'));
+
+        return $result;
     }
 
     public function rejectReversal(Sale $sale, User $user): Sale
@@ -309,12 +335,20 @@ class SaleService
             ]);
         }
 
+        $requestedBy = $sale->reversal_requested_by;
+
         $sale->update([
             'status' => SaleStatus::Completed,
             'reversal_requested_by' => null,
             'reversal_requested_at' => null,
             'reversal_reason' => null,
         ]);
+
+        $shop = Shop::withoutGlobalScopes()->find($sale->shop_id);
+        // Temporarily set reversal_requested_by so listener can target the requester
+        $sale->reversal_requested_by = $requestedBy;
+        event(new ReversalResolved($shop, $sale, $user, 'rejected'));
+        $sale->reversal_requested_by = null;
 
         return $sale;
     }

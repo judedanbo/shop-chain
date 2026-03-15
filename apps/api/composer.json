@@ -20,10 +20,15 @@
     ],
     "require": {
         "php": "^8.2",
+        "kreait/laravel-firebase": "^7.0",
         "laragear/two-factor": "*",
+        "laravel-notification-channels/fcm": "^6.0",
+        "laravel-notification-channels/twilio": "^4.1",
         "laravel/framework": "^12.0",
         "laravel/passport": "*",
+        "laravel/reverb": "^1.8",
         "laravel/tinker": "^2.10.1",
+        "samuelmwangiw/africastalking-laravel": "^2.2",
         "shopchain/core": "@dev"
     },
     "require-dev": {

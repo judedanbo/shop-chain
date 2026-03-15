@@ -24,6 +24,7 @@ use App\Http\Controllers\TillController;
 use App\Http\Controllers\TillPaymentController;
 use App\Http\Controllers\HeldOrderController;
 use App\Http\Controllers\KitchenOrderController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\UnitOfMeasureController;
 use App\Http\Controllers\WarehouseController;
@@ -32,6 +33,7 @@ use ShopChain\Core\Models\GoodsReceipt;
 use ShopChain\Core\Models\KitchenOrderItem;
 use ShopChain\Core\Models\PurchaseOrder;
 use ShopChain\Core\Models\ShopMember;
+use ShopChain\Core\Models\Notification;
 use ShopChain\Core\Models\StockAdjustment;
 use ShopChain\Core\Models\StockTransfer;
 
@@ -125,6 +127,7 @@ Route::prefix('v1')->group(function () {
             Route::model('po', PurchaseOrder::class);
             Route::model('item', KitchenOrderItem::class);
             Route::model('member', ShopMember::class);
+            Route::model('notification', Notification::class);
 
             // Warehouses
             Route::apiResource('warehouses', WarehouseController::class)->except('store');
@@ -231,6 +234,15 @@ Route::prefix('v1')->group(function () {
             Route::get('held-orders/{heldOrder}', [HeldOrderController::class, 'show']);
             Route::post('held-orders/{heldOrder}/recall', [HeldOrderController::class, 'recall']);
             Route::delete('held-orders/{heldOrder}', [HeldOrderController::class, 'destroy']);
+
+            // Notifications (preferences routes before wildcard)
+            Route::get('notifications/preferences', [NotificationController::class, 'preferences']);
+            Route::patch('notifications/preferences', [NotificationController::class, 'updatePreferences']);
+            Route::get('notifications', [NotificationController::class, 'index']);
+            Route::patch('notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
+            Route::post('notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
+            Route::delete('notifications/{notification}', [NotificationController::class, 'destroy']);
+            Route::post('notifications/{notification}/action', [NotificationController::class, 'action']);
         });
 
     // Admin auth routes

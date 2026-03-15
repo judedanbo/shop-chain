@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use ShopChain\Core\Enums\PoStatus;
+use ShopChain\Core\Events\PurchaseOrderStatusChanged;
 use ShopChain\Core\Models\Batch;
 use ShopChain\Core\Models\Product;
 use ShopChain\Core\Models\ProductLocation;
@@ -48,7 +49,7 @@ class PurchaseOrderService
     /**
      * @throws ValidationException
      */
-    public function submitPO(PurchaseOrder $po): PurchaseOrder
+    public function submitPO(PurchaseOrder $po, User $user): PurchaseOrder
     {
         if ($po->status !== PoStatus::Draft) {
             throw ValidationException::withMessages([
@@ -56,9 +57,14 @@ class PurchaseOrderService
             ]);
         }
 
+        $oldStatus = $po->status->value;
         $po->update(['status' => PoStatus::Pending]);
+        $po = $po->fresh();
 
-        return $po->fresh();
+        $shop = Shop::withoutGlobalScopes()->find($po->shop_id);
+        event(new PurchaseOrderStatusChanged($shop, $po, $oldStatus, $po->status->value, $user));
+
+        return $po;
     }
 
     /**
@@ -72,18 +78,23 @@ class PurchaseOrderService
             ]);
         }
 
+        $oldStatus = $po->status->value;
         $po->update([
             'status' => PoStatus::Approved,
             'approved_by' => $user->id,
         ]);
+        $po = $po->fresh();
 
-        return $po->fresh();
+        $shop = Shop::withoutGlobalScopes()->find($po->shop_id);
+        event(new PurchaseOrderStatusChanged($shop, $po, $oldStatus, $po->status->value, $user));
+
+        return $po;
     }
 
     /**
      * @throws ValidationException
      */
-    public function markShipped(PurchaseOrder $po): PurchaseOrder
+    public function markShipped(PurchaseOrder $po, User $user): PurchaseOrder
     {
         if ($po->status !== PoStatus::Approved) {
             throw ValidationException::withMessages([
@@ -91,9 +102,14 @@ class PurchaseOrderService
             ]);
         }
 
+        $oldStatus = $po->status->value;
         $po->update(['status' => PoStatus::Shipped]);
+        $po = $po->fresh();
 
-        return $po->fresh();
+        $shop = Shop::withoutGlobalScopes()->find($po->shop_id);
+        event(new PurchaseOrderStatusChanged($shop, $po, $oldStatus, $po->status->value, $user));
+
+        return $po;
     }
 
     /**
@@ -101,7 +117,7 @@ class PurchaseOrderService
      *
      * @throws ValidationException
      */
-    public function receivePO(PurchaseOrder $po, array $receivedItems): PurchaseOrder
+    public function receivePO(PurchaseOrder $po, array $receivedItems, ?User $user = null): PurchaseOrder
     {
         if (! in_array($po->status, [PoStatus::Shipped, PoStatus::Partial])) {
             throw ValidationException::withMessages([
@@ -109,7 +125,9 @@ class PurchaseOrderService
             ]);
         }
 
-        return DB::transaction(function () use ($po, $receivedItems) {
+        $oldStatus = $po->status->value;
+
+        $result = DB::transaction(function () use ($po, $receivedItems) {
             $po->load('items');
 
             foreach ($receivedItems as $receivedItem) {
@@ -181,12 +199,19 @@ class PurchaseOrderService
 
             return $po->fresh()->load('items');
         });
+
+        if ($user) {
+            $shop = Shop::withoutGlobalScopes()->find($result->shop_id);
+            event(new PurchaseOrderStatusChanged($shop, $result, $oldStatus, $result->status->value, $user));
+        }
+
+        return $result;
     }
 
     /**
      * @throws ValidationException
      */
-    public function cancelPO(PurchaseOrder $po): PurchaseOrder
+    public function cancelPO(PurchaseOrder $po, ?User $user = null): PurchaseOrder
     {
         if (in_array($po->status, [PoStatus::Received, PoStatus::Partial])) {
             throw ValidationException::withMessages([
@@ -194,8 +219,15 @@ class PurchaseOrderService
             ]);
         }
 
+        $oldStatus = $po->status->value;
         $po->update(['status' => PoStatus::Cancelled]);
+        $po = $po->fresh();
 
-        return $po->fresh();
+        if ($user) {
+            $shop = Shop::withoutGlobalScopes()->find($po->shop_id);
+            event(new PurchaseOrderStatusChanged($shop, $po, $oldStatus, $po->status->value, $user));
+        }
+
+        return $po;
     }
 }

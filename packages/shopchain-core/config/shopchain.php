@@ -27,6 +27,31 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Notifications
+    |--------------------------------------------------------------------------
+    */
+
+    'notifications' => [
+        'category_defaults' => [
+            'stock_alert' => ['enabled' => true, 'channels' => ['in_app', 'push', 'email']],
+            'order_update' => ['enabled' => true, 'channels' => ['in_app']],
+            'sale_event' => ['enabled' => true, 'channels' => ['in_app']],
+            'approval_request' => ['enabled' => true, 'channels' => ['in_app', 'push']],
+            'team_update' => ['enabled' => true, 'channels' => ['in_app']],
+            'system' => ['enabled' => true, 'channels' => ['in_app', 'email']],
+            'customer' => ['enabled' => true, 'channels' => ['in_app']],
+        ],
+
+        'quiet_hours' => [
+            'default_start' => '22:00',
+            'default_end' => '07:00',
+        ],
+
+        'sms_provider_priority' => ['africastalking', 'twilio'],
+    ],
+
     'regions' => [
         'Ahafo',
         'Ashanti',
