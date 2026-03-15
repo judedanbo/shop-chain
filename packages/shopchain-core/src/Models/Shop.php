@@ -105,6 +105,11 @@ class Shop extends BaseModel
             ->where('status', SubscriptionStatus::Active);
     }
 
+    public function billingRecords(): HasMany
+    {
+        return $this->hasMany(BillingRecord::class);
+    }
+
     public function billingExemptions(): HasMany
     {
         return $this->hasMany(BillingExemption::class);

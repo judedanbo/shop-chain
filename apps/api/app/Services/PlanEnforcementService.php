@@ -11,6 +11,7 @@ use ShopChain\Core\Models\Shop;
 use ShopChain\Core\Models\ShopMember;
 use ShopChain\Core\Models\Supplier;
 use ShopChain\Core\Models\Warehouse;
+use ShopChain\Core\Services\BillingExemptionService;
 
 class PlanEnforcementService
 {
@@ -24,6 +25,11 @@ class PlanEnforcementService
     {
         // Non-decision-makers are never blocked
         if ($member && ! in_array($member->role, self::DECISION_MAKER_ROLES)) {
+            return true;
+        }
+
+        // Exempted shops bypass all plan limits
+        if ($this->isExempt($shop)) {
             return true;
         }
 
@@ -116,5 +122,10 @@ class PlanEnforcementService
                 'blocked' => $pct >= 100,
             ];
         })->values()->all();
+    }
+
+    public function isExempt(Shop $shop): bool
+    {
+        return app(BillingExemptionService::class)->hasActiveExemption($shop);
     }
 }

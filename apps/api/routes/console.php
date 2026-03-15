@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('shopchain:check-low-stock')->hourly();
 Schedule::command('shopchain:check-expiring-batches')->daily();
 Schedule::command('shopchain:check-plan-limits')->daily();
+
+Schedule::command('shopchain:expire-subscriptions')->daily();
+Schedule::command('shopchain:renew-subscriptions')->daily();
+Schedule::command('shopchain:handle-grace-period')->daily();

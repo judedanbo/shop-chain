@@ -36,4 +36,9 @@ class ShopPolicy
     {
         return $user->hasPermissionTo('settings.edit');
     }
+
+    public function manageBilling(User $user, Shop $shop): bool
+    {
+        return $shop->owner_id === $user->id;
+    }
 }

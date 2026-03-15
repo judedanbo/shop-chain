@@ -1,10 +1,14 @@
 <?php
 
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Admin\BillingExemptionController;
+use App\Http\Controllers\Admin\PlanController as AdminPlanController;
+use App\Http\Controllers\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\TokenController;
 use App\Http\Controllers\Auth\TwoFactorController;
+use App\Http\Controllers\BillingController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
@@ -28,6 +32,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\UnitOfMeasureController;
 use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\Webhook\PaystackWebhookController;
 use Illuminate\Support\Facades\Route;
 use ShopChain\Core\Models\GoodsReceipt;
 use ShopChain\Core\Models\KitchenOrderItem;
@@ -235,6 +240,16 @@ Route::prefix('v1')->group(function () {
             Route::post('held-orders/{heldOrder}/recall', [HeldOrderController::class, 'recall']);
             Route::delete('held-orders/{heldOrder}', [HeldOrderController::class, 'destroy']);
 
+            // Billing
+            Route::get('billing/plan', [BillingController::class, 'plan']);
+            Route::post('billing/upgrade', [BillingController::class, 'upgrade']);
+            Route::post('billing/cancel', [BillingController::class, 'cancel']);
+            Route::get('billing/history', [BillingController::class, 'history']);
+            Route::get('billing/payment-methods', [BillingController::class, 'paymentMethods']);
+            Route::post('billing/payment-methods', [BillingController::class, 'addPaymentMethod']);
+            Route::patch('billing/payment-methods/{paymentMethod}', [BillingController::class, 'setDefaultPaymentMethod']);
+            Route::delete('billing/payment-methods/{paymentMethod}', [BillingController::class, 'removePaymentMethod']);
+
             // Notifications (preferences routes before wildcard)
             Route::get('notifications/preferences', [NotificationController::class, 'preferences']);
             Route::patch('notifications/preferences', [NotificationController::class, 'updatePreferences']);
@@ -245,6 +260,9 @@ Route::prefix('v1')->group(function () {
             Route::post('notifications/{notification}/action', [NotificationController::class, 'action']);
         });
 
+    // Webhooks (no auth)
+    Route::post('webhooks/paystack', PaystackWebhookController::class);
+
     // Admin auth routes
     Route::prefix('admin/auth')->group(function () {
         Route::post('/login', [AdminAuthController::class, 'login'])
@@ -254,4 +272,22 @@ Route::prefix('v1')->group(function () {
         Route::post('/logout', [AdminAuthController::class, 'logout'])
             ->middleware(['auth:api', 'active_user', 'admin']);
     });
+
+    // Admin routes
+    Route::prefix('admin')
+        ->middleware(['auth:api', 'active_user', 'admin'])
+        ->group(function () {
+            Route::apiResource('plans', AdminPlanController::class)->except('destroy');
+            Route::post('plans/{plan}/transition', [AdminPlanController::class, 'transition']);
+
+            Route::get('subscriptions', [AdminSubscriptionController::class, 'index']);
+            Route::get('subscriptions/{subscription}', [AdminSubscriptionController::class, 'show']);
+            Route::post('subscriptions/{subscription}/change-plan', [AdminSubscriptionController::class, 'changePlan']);
+            Route::post('subscriptions/{subscription}/cancel', [AdminSubscriptionController::class, 'cancel']);
+
+            Route::get('shops/{shop}/exemptions', [BillingExemptionController::class, 'index']);
+            Route::post('shops/{shop}/exemptions', [BillingExemptionController::class, 'store']);
+            Route::patch('shops/{shop}/exemptions/{exemption}', [BillingExemptionController::class, 'update']);
+            Route::delete('shops/{shop}/exemptions/{exemption}', [BillingExemptionController::class, 'destroy']);
+        });
 });

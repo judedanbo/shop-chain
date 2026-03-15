@@ -588,7 +588,7 @@ The transactional heart of the application. Requires careful attention to data i
   - [x] No role-based discount limits — DISCOUNT_ROLE_LIMITS config doesn't exist yet
   - [x] No QR code generation — API stores verify_token only; QR is frontend concern
 - **Deferred items:**
-  - [x] `SaleCompleted`/`DiscountApplied` events *(implemented in Phase 7)*
+  - [ ] `SaleCompleted`/`DiscountApplied` events *(deferred to Phase 7 — all side-effects handled inline in SaleService)*
   - [ ] Receipt ID generation (`TXN-YYYYMMDD-NNNN`) *(not in current migration schema)*
   - [ ] QR code generation via `simplesoftwareio/simple-qrcode` *(frontend concern)*
   - [ ] Role-based discount limits *(DISCOUNT_ROLE_LIMITS config doesn't exist yet)*
@@ -615,7 +615,7 @@ The transactional heart of the application. Requires careful attention to data i
   - `POST /shops/{shop}/sales/{sale}/reject-reversal`
 - [x] **Tests:** SaleReversalTest (14) — all passing
 - **Deferred items:**
-  - [x] `ReversalRequested`/`ReversalResolved`/`ReversalDirect` events *(implemented in Phase 7)*
+  - [ ] `ReversalRequested`/`ReversalApproved`/`ReversalRejected`/`ReversalExecuted` events *(deferred to Phase 7)*
   - [ ] Audit trail entry *(deferred to Phase 7 — spatie/laravel-activitylog)*
 
 ### 3.3 Receipt Verification (Public) ✅
@@ -903,9 +903,9 @@ Real-time order flow between bar POS, kitchen display, and till management.
 
 ---
 
-## Phase 8 — Subscriptions & Billing
+## Phase 8 — Subscriptions & Billing ✅
 
-### 8.1 Plan System
+### 8.1 Plan System ✅
 
 - **Service:** `PlanService`
   - 3 default tiers: Free (GH₵0), Basic (GH₵49), Max (GH₵149)
@@ -914,7 +914,7 @@ Real-time order flow between bar POS, kitchen display, and till management.
   - Plan lifecycle: draft → scheduled → active → retiring → retired
   - Computed branch limit: `branchesPerShop × max(shopCount, 1)`
 
-### 8.2 Subscription Management
+### 8.2 Subscription Management ✅
 
 - **Service:** `SubscriptionService`
   - One active subscription per shop (unique index)
@@ -929,7 +929,7 @@ Real-time order flow between bar POS, kitchen display, and till management.
   - `GET /billing/history`
   - `GET/POST/DELETE /billing/payment-methods/{method?}`
 
-### 8.3 Payment Integration
+### 8.3 Payment Integration ✅
 
 - **Payment gateway:** Paystack (Ghana-focused, supports MoMo + card)
   - **Subscriptions:** `devtobi/cashier-paystack` — Cashier-style API for plan subscriptions (create, upgrade, downgrade, cancel, retry), webhook dispatching, payment method management
@@ -940,7 +940,7 @@ Real-time order flow between bar POS, kitchen display, and till management.
   - Mobile Money (MTN MoMo, Vodafone Cash, AirtelTigo Cash)
   - Card (Visa, Mastercard)
 
-### 8.4 Usage Tracking
+### 8.4 Usage Tracking ✅
 
 - **Service:** `UsageTrackingService`
   - Real-time counters cached in Redis:
@@ -953,7 +953,7 @@ Real-time order flow between bar POS, kitchen display, and till management.
   - Warning threshold: ≥80%, blocked: ≥100%
   - Decision maker vs non-decision maker enforcement (non-DMs never blocked)
 
-### 8.5 Billing Exemptions
+### 8.5 Billing Exemptions ✅
 
 - **Service:** `BillingExemptionService`
   - Admin-granted resource exemptions that extend plan limits for specific shops
@@ -1361,7 +1361,7 @@ Phase 6: Team ──── depends on Phase 1 ───────────�
 Phase 7: Notifications ──── depends on Phase 1 ─────┤ (can parallel, needed by 3+)
   (wire up event listeners progressively)            │
                                                      │
-Phase 8: Billing ──── depends on Phase 1 ───────────┤ (can parallel with 2-5)
+Phase 8: Billing ✅ ── depends on Phase 1 ───────────┤ (can parallel with 2-5)
                                                      │
 Phase 9: Admin ──── depends on Phase 1-8 ───────────┤
                                                      │
