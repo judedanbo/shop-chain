@@ -115,6 +115,11 @@ class Shop extends BaseModel
         return $this->hasMany(PurchaseOrder::class);
     }
 
+    public function kitchenOrders(): HasMany
+    {
+        return $this->hasMany(KitchenOrder::class);
+    }
+
     /* ------------------------------------------------------------------ */
     /*  Accessors                                                          */
     /* ------------------------------------------------------------------ */

@@ -20,10 +20,12 @@ use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TillController;
+use App\Http\Controllers\KitchenOrderController;
 use App\Http\Controllers\UnitOfMeasureController;
 use App\Http\Controllers\WarehouseController;
 use Illuminate\Support\Facades\Route;
 use ShopChain\Core\Models\GoodsReceipt;
+use ShopChain\Core\Models\KitchenOrderItem;
 use ShopChain\Core\Models\PurchaseOrder;
 use ShopChain\Core\Models\StockAdjustment;
 use ShopChain\Core\Models\StockTransfer;
@@ -111,6 +113,7 @@ Route::prefix('v1')->group(function () {
             Route::model('transfer', StockTransfer::class);
             Route::model('receipt', GoodsReceipt::class);
             Route::model('po', PurchaseOrder::class);
+            Route::model('item', KitchenOrderItem::class);
 
             // Warehouses
             Route::apiResource('warehouses', WarehouseController::class)->except('store');
@@ -183,6 +186,19 @@ Route::prefix('v1')->group(function () {
             Route::post('tills/open', [TillController::class, 'open']);
             Route::get('tills/{till}', [TillController::class, 'show']);
             Route::post('tills/{till}/close', [TillController::class, 'close']);
+
+            // Kitchen Orders
+            Route::get('kitchen-orders', [KitchenOrderController::class, 'index']);
+            Route::post('kitchen-orders', [KitchenOrderController::class, 'store']);
+            Route::get('kitchen-orders/{kitchenOrder}', [KitchenOrderController::class, 'show']);
+            Route::post('kitchen-orders/{kitchenOrder}/accept', [KitchenOrderController::class, 'accept']);
+            Route::post('kitchen-orders/{kitchenOrder}/reject', [KitchenOrderController::class, 'reject']);
+            Route::post('kitchen-orders/{kitchenOrder}/complete', [KitchenOrderController::class, 'complete']);
+            Route::post('kitchen-orders/{kitchenOrder}/serve', [KitchenOrderController::class, 'serve']);
+            Route::post('kitchen-orders/{kitchenOrder}/return', [KitchenOrderController::class, 'returnOrder']);
+            Route::post('kitchen-orders/{kitchenOrder}/cancel', [KitchenOrderController::class, 'cancel']);
+            Route::post('kitchen-orders/{kitchenOrder}/items/{item}/serve', [KitchenOrderController::class, 'serveItem'])
+                ->scopeBindings();
         });
 
     // Admin auth routes

@@ -247,7 +247,7 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(complet
   - [x] `BelongsToShop` — common shop_id relationship + scope *(exists at `packages/shopchain-core/src/Traits/BelongsToShop.php`)*
   - [x] `HasShopRelationships` — shared shop relationship helpers *(exists at `packages/shopchain-core/src/Traits/HasShopRelationships.php`)*
   - [ ] `LogsActivity` (from `spatie/laravel-activitylog`) — replaces custom `HasAuditTrail`; auto-logs changes with before/after snapshots, causer, custom properties (IP, device, risk score) *(deferred — applied per-model as CRUD is built in Phase 2+)*
-  - [ ] `HasStates` (from `spatie/laravel-model-states`) — on PurchaseOrder, Sale, KitchenOrder, KitchenOrderItem, StockTransfer, StockAdjustment, GoodsReceipt for declarative status lifecycles *(deferred — state classes built per-entity in Phase 2+; `packages/shopchain-core/src/States/` is empty)*
+  - [ ] `HasStates` (from `spatie/laravel-model-states`) — on PurchaseOrder, Sale, KitchenOrder, KitchenOrderItem, StockTransfer, StockAdjustment, GoodsReceipt for declarative status lifecycles *(deferred — using simple enum validation with ValidationException pattern for now; `packages/shopchain-core/src/States/` is empty)*
   - [x] `HasRoles` (from `spatie/laravel-permission`) — on User/ShopMember with team scoping (team_id = shop_id) *(wired on User model in `apps/api/app/Models/User.php`)*
   - [ ] `InteractsWithMedia` (from `spatie/laravel-medialibrary`) — on Product, Shop, User for image/file uploads *(deferred — medialibrary not yet installed, Phase 2.1+)*
   - [x] `HasUuid` — UUID primary key generation *(covered by `BaseModel` using Laravel's `HasUuids` trait)*
@@ -322,7 +322,7 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(complet
     - `partial` → subset of sub-permissions (e.g., `products.view`, `products.edit` only)
     - `view` → read-only sub-permission (e.g., `products.view` only)
     - `none` → no permissions assigned for that module
-  - [ ] Policy classes delegate to permission checks: *(12 of 14 done)*
+  - [ ] Policy classes delegate to permission checks: *(13 of 15 done)*
     - [x] `ProductPolicy` *(products.view, products.edit, products.delete, products.price)*
     - [x] `CategoryPolicy` *(products.view, products.edit — no separate category permissions)*
     - [x] `UnitOfMeasurePolicy` *(products.view, products.edit — no separate unit permissions)*
@@ -335,8 +335,9 @@ Create all 52 models with relationships, scopes, accessors, and casts. *(complet
     - [x] `SalePolicy` *(pos.access OR sales.view, pos.access for create)*
     - [x] `CustomerPolicy` *(customers.view, customers.edit, customers.delete)*
     - [x] `PosHeldOrderPolicy` *(pos.access)*
+    - [x] `KitchenOrderPolicy` *(kitchen.view, kitchen.manage, pos.access)*
     - [ ] `TeamPolicy`, `SettingsPolicy`
-    - [ ] `DashboardPolicy`, `BarKitchenPolicy`
+    - [ ] `DashboardPolicy`
   - [ ] `AdminPolicy` — separate admin guard with 12 boolean admin permissions
   - [x] `isDecisionMaker` helper for plan limit enforcement: *(implemented in PlanEnforcementService + EnsureBranchAccess)*
     - Decision makers: roles with `isDecisionMaker = true` (owner, general_manager, manager)
@@ -678,36 +679,54 @@ The transactional heart of the application. Requires careful attention to data i
 
 Real-time order flow between bar POS, kitchen display, and till management.
 
-### 4.1 Kitchen Order System
+### 4.1 Kitchen Order System ✅
 
-- **Service:** `KitchenOrderService`
-  - Place order from bar POS (linked to till and optional sale)
-  - Order status lifecycle (state machine via `spatie/laravel-model-states`):
+- [x] **Service:** `KitchenOrderService`
+  - [x] `placeOrder(Shop, array, User)` — partitions items by `Product.skip_kitchen`: skip_kitchen items create a bar_fulfilled=true, status=Completed order; remaining items create a pending kitchen order. Computes total = Σ(product.price × quantity). Wrapped in `DB::transaction()`.
+  - [x] Order status lifecycle (simple enum validation, no state machines — consistent with Phases 1–3):
     ```
-    pending → accepted → preparing → ready → served
-                └→ rejected (with reason)
-                              └→ returned (with reason)
-                                        └→ cancelled (by authorized user)
+    pending → accepted → completed → served
+       ├→ rejected (with reason)           ├→ returned (with reason)
+       └→ cancelled (with cancelled_by)
+                └→ cancelled
     ```
-  - Per-item status tracking via separate state machine (pending → preparing → ready → served → rejected)
-  - Transition classes fire Reverb broadcast events for real-time kitchen display updates
-  - Table number and order type (dine_in/takeaway)
-- **Real-time broadcasting (Reverb):**
-  - `KitchenOrderPlaced` → kitchen display updates
-  - `KitchenOrderStatusChanged` → bar POS updates
-  - `KitchenItemReady` → server notification
-  - Channel: `private-shop.{shopId}.kitchen.{branchId}`
-- **Endpoints:**
-  - `POST /shops/{shop}/kitchen-orders`
-  - `PATCH /shops/{shop}/kitchen-orders/{order}/status`
-  - `PATCH /shops/{shop}/kitchen-orders/{order}/items/{item}/status`
-  - `GET /shops/{shop}/branches/{branch}/kitchen-orders` — filtered by status
+  - [x] `acceptOrder`, `rejectOrder(reason)`, `completeOrder`, `serveOrder`, `returnOrder(reason)`, `cancelOrder(user)` — each validates current status, throws `ValidationException` on invalid transitions
+  - [x] Per-item status: `serveItem(KitchenOrderItem)` — pending → served with served_at timestamp
+  - [x] Table number and order type (dine_in/takeaway)
+- [x] **Policy:** `KitchenOrderPolicy` *(kitchen.view, kitchen.manage, pos.access)*
+  - viewAny/view → kitchen.view
+  - create → kitchen.manage OR pos.access
+  - updateStatus/serveItem → kitchen.manage
+- [x] **Resources:** `KitchenOrderResource`, `KitchenOrderItemResource`
+- [x] **Form Requests:** `PlaceKitchenOrderRequest`, `RejectKitchenOrderRequest`, `ReturnKitchenOrderRequest`
+- [x] **Factory:** `KitchenOrderFactory` (8 states), `KitchenOrderItemFactory`
+- [x] **Controller:** `KitchenOrderController` (10 actions: index, store, show, accept, reject, complete, serve, returnOrder, cancel, serveItem)
+- [x] **Endpoints:**
+  - `GET /shops/{shop}/kitchen-orders` — QueryBuilder with filters (branch_id, till_id, status, bar_fulfilled)
+  - `POST /shops/{shop}/kitchen-orders` — place order (201)
+  - `GET /shops/{shop}/kitchen-orders/{kitchenOrder}` — detail with items, server, till
+  - `POST /shops/{shop}/kitchen-orders/{kitchenOrder}/accept`
+  - `POST /shops/{shop}/kitchen-orders/{kitchenOrder}/reject`
+  - `POST /shops/{shop}/kitchen-orders/{kitchenOrder}/complete`
+  - `POST /shops/{shop}/kitchen-orders/{kitchenOrder}/serve`
+  - `POST /shops/{shop}/kitchen-orders/{kitchenOrder}/return`
+  - `POST /shops/{shop}/kitchen-orders/{kitchenOrder}/cancel`
+  - `POST /shops/{shop}/kitchen-orders/{kitchenOrder}/items/{item}/serve` (scopeBindings)
+- [x] **Tests:** KitchenOrderTest (22 tests)
+  - Place order (5): with items, skip_kitchen split, till validation, branch validation, items required
+  - Status transitions (8): accept, reject with reason, complete, serve, return with reason, cancel pending, cancel accepted, invalid transition
+  - Per-item (2): serve item, already-served rejection
+  - List/view (3): filter by status, filter by branch_id, show with items+server
+  - Authorization (4): bar_manager place+manage, kitchen_staff manage, waiter place+view (no manage), viewer forbidden
+- **Deferred items:**
+  - [ ] Real-time broadcasting via Reverb (`KitchenOrderPlaced`, `KitchenOrderStatusChanged`, `KitchenItemReady`)
+  - [ ] State machines via `spatie/laravel-model-states` (using simple enum validation for now)
 
 ### 4.2 Bar POS Extensions
 
-- Per-till ordering with separate kitchen/bar routing
-- Products with `skip_kitchen = true` bypass kitchen queue
-- Order grouping by table number
+- [ ] Per-till ordering with separate kitchen/bar routing
+- [x] Products with `skip_kitchen = true` bypass kitchen queue *(implemented in KitchenOrderService.placeOrder)*
+- [ ] Order grouping by table number
 
 ### 4.3 Bar Held Orders (Kitchen Context)
 
@@ -1274,7 +1293,7 @@ Phase 3: Sales & POS ──── depends on Phase 2 ───────┤
   └─ 3.5 Tills                                       │
                                                      │
 Phase 4: Kitchen ──── depends on Phase 3 ───────────┤
-  ├─ 4.1 Kitchen Orders                              │
+  ├─ 4.1 Kitchen Orders ✅                           │
   ├─ 4.2 Bar POS                                     │
   └─ 4.3 Held Orders                                 │
                                                      │
@@ -1342,7 +1361,7 @@ Phase 14: Infrastructure ──── Phase 1 + ongoing ─────┘
 | Purchase Orders                                    | 7         |
 | Inventory (adjustments, transfers, goods receipts) | 12        |
 | Suppliers, Customers, Warehouses, Team             | 14        |
-| Bar/Kitchen (orders, bar held orders)              | 8         |
+| Bar/Kitchen (orders, bar held orders)              | 10 + held |
 | Notifications & Preferences                        | 9         |
 | Billing, Subscriptions & Exemptions                | 10        |
 | Admin (all groups incl. investors, forensics)      | ~50       |
