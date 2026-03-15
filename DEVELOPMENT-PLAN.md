@@ -144,9 +144,9 @@ Establish the project structure, database, authentication, and multi-tenancy. Ev
     - [ ] `spatie/laravel-settings` — typed settings groups with DB storage (Phase 10.1)
     - [ ] `spatie/laravel-backup` — scheduled PostgreSQL + file backups to S3 (Phase 14.3)
     - [ ] `spatie/laravel-sluggable` — auto-slug generation for products, categories (Phase 2.2)
-    - [ ] `kreait/laravel-firebase` + `laravel-notification-channels/fcm` — FCM push notifications (Phase 7.1)
-    - [ ] `samuelmwangiw/africastalking-laravel` — Africa's Talking SMS for Ghana (Phase 7.1)
-    - [ ] `laravel-notification-channels/twilio` — SMS fallback for international (Phase 7.1)
+    - [x] `kreait/laravel-firebase` + `laravel-notification-channels/fcm` — FCM push notifications (Phase 7.1)
+    - [x] `samuelmwangiw/africastalking-laravel` — Africa's Talking SMS for Ghana (Phase 7.1)
+    - [x] `laravel-notification-channels/twilio` — SMS fallback for international (Phase 7.1)
 - [ ] Shared tooling: *(partially done)*
   - [x] PHPStan (level 8) for static analysis *(installed, needs phpstan.neon config)*
   - [x] Pint for code style *(installed, needs pint.json config)*
@@ -479,7 +479,7 @@ Build the domain logic and API endpoints for the primary business operations. Ea
   - [x] QueryBuilder filtering on all list endpoints (status, product_id, type, warehouse_id, branch_id)
   - [x] Permission-based access: viewer can view only, inventory_officer can adjust/transfer but not approve, owner/manager have full access
 - **Deferred items:**
-  - [ ] `StockAdjusted`/`StockTransferred`/`LowStockDetected` events *(deferred to Phase 7 — no listeners exist yet)*
+  - [x] `StockAdjusted`/`StockTransferred`/`LowStockDetected` events *(implemented in Phase 7)*
   - [ ] State machines via `spatie/laravel-model-states` *(not adopted — explicit service methods + status checks sufficient for all Phase 2 modules)*
   - [x] Batch tracking FEFO integration *(implemented in Phase 3.1 SaleService — consume oldest-expiry-first, mark Depleted when qty=0, link first batch to SaleItem.batch_id)*
   - [ ] Auto-computed product stock status from ProductLocation totals *(deferred)*
@@ -513,7 +513,7 @@ Build the domain logic and API endpoints for the primary business operations. Ea
   - [x] QueryBuilder filtering on list endpoints (status, supplier_id, warehouse_id, name partial)
   - [x] Permission-based access: viewer can view only, inventory_officer cannot approve POs, owner/manager have full access
 - **Deferred items:**
-  - [ ] `POApproved`/`POCancelled` events *(deferred to Phase 7 — no listeners exist yet)*
+  - [x] `POApproved`/`POCancelled` events *(implemented in Phase 7 as PurchaseOrderStatusChanged)*
   - [ ] State machines via `spatie/laravel-model-states` *(7 states manageable with service methods + explicit checks)*
   - [ ] PO total computation Σ(item.qty × item.unitCost) *(no total column in migration; compute on read if needed)*
 
@@ -588,7 +588,7 @@ The transactional heart of the application. Requires careful attention to data i
   - [x] No role-based discount limits — DISCOUNT_ROLE_LIMITS config doesn't exist yet
   - [x] No QR code generation — API stores verify_token only; QR is frontend concern
 - **Deferred items:**
-  - [ ] `SaleCompleted`/`DiscountApplied` events *(deferred to Phase 7 — all side-effects handled inline in SaleService)*
+  - [x] `SaleCompleted`/`DiscountApplied` events *(implemented in Phase 7)*
   - [ ] Receipt ID generation (`TXN-YYYYMMDD-NNNN`) *(not in current migration schema)*
   - [ ] QR code generation via `simplesoftwareio/simple-qrcode` *(frontend concern)*
   - [ ] Role-based discount limits *(DISCOUNT_ROLE_LIMITS config doesn't exist yet)*
@@ -615,7 +615,7 @@ The transactional heart of the application. Requires careful attention to data i
   - `POST /shops/{shop}/sales/{sale}/reject-reversal`
 - [x] **Tests:** SaleReversalTest (14) — all passing
 - **Deferred items:**
-  - [ ] `ReversalRequested`/`ReversalApproved`/`ReversalRejected`/`ReversalExecuted` events *(deferred to Phase 7)*
+  - [x] `ReversalRequested`/`ReversalResolved`/`ReversalDirect` events *(implemented in Phase 7)*
   - [ ] Audit trail entry *(deferred to Phase 7 — spatie/laravel-activitylog)*
 
 ### 3.3 Receipt Verification (Public) ✅
@@ -854,9 +854,9 @@ Real-time order flow between bar POS, kitchen display, and till management.
 
 ---
 
-## Phase 7 — Notifications & Real-Time
+## Phase 7 — Notifications & Real-Time ✅
 
-### 7.1 Notification System
+### 7.1 Notification System ✅
 
 - **Service:** `NotificationService`
   - 7 notification categories: stock_alert, order_update, sale_event, approval_request, team_update, system, customer
@@ -885,7 +885,7 @@ Real-time order flow between bar POS, kitchen display, and till management.
   - `private-shop.{shopId}.pos` — POS events (sale completed, stock alerts)
   - `private-shop.{shopId}.inventory` — stock changes, transfer updates
 
-### 7.2 Notification Triggers
+### 7.2 Notification Triggers ✅
 
 | Event                      | Category         | Priority | Channels            | Target Roles                  |
 | -------------------------- | ---------------- | -------- | ------------------- | ----------------------------- |
