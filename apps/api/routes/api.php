@@ -19,6 +19,7 @@ use App\Http\Controllers\ShopController;
 use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TillController;
 use App\Http\Controllers\UnitOfMeasureController;
 use App\Http\Controllers\WarehouseController;
 use Illuminate\Support\Facades\Route;
@@ -176,6 +177,12 @@ Route::prefix('v1')->group(function () {
             Route::get('pos-held-orders/{posHeldOrder}', [PosHeldOrderController::class, 'show']);
             Route::post('pos-held-orders/{posHeldOrder}/recall', [PosHeldOrderController::class, 'recall']);
             Route::delete('pos-held-orders/{posHeldOrder}', [PosHeldOrderController::class, 'destroy']);
+
+            // Tills
+            Route::get('tills', [TillController::class, 'index']);
+            Route::post('tills/open', [TillController::class, 'open']);
+            Route::get('tills/{till}', [TillController::class, 'show']);
+            Route::post('tills/{till}/close', [TillController::class, 'close']);
         });
 
     // Admin auth routes

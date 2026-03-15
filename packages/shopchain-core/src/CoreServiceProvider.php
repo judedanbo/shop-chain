@@ -16,6 +16,7 @@ use ShopChain\Core\Models\Shop;
 use ShopChain\Core\Models\StockAdjustment;
 use ShopChain\Core\Models\StockTransfer;
 use ShopChain\Core\Models\Supplier;
+use ShopChain\Core\Models\Till;
 use ShopChain\Core\Models\UnitOfMeasure;
 use ShopChain\Core\Models\Warehouse;
 use ShopChain\Core\Policies\BranchPolicy;
@@ -30,6 +31,7 @@ use ShopChain\Core\Policies\ShopPolicy;
 use ShopChain\Core\Policies\StockAdjustmentPolicy;
 use ShopChain\Core\Policies\StockTransferPolicy;
 use ShopChain\Core\Policies\SupplierPolicy;
+use ShopChain\Core\Policies\TillPolicy;
 use ShopChain\Core\Policies\UnitOfMeasurePolicy;
 use ShopChain\Core\Policies\WarehousePolicy;
 
@@ -67,6 +69,7 @@ class CoreServiceProvider extends ServiceProvider
         Gate::policy(Sale::class, SalePolicy::class);
         Gate::policy(Customer::class, CustomerPolicy::class);
         Gate::policy(PosHeldOrder::class, PosHeldOrderPolicy::class);
+        Gate::policy(Till::class, TillPolicy::class);
 
         if ($this->app->runningInConsole()) {
             $this->publishes([

@@ -650,14 +650,27 @@ The transactional heart of the application. Requires careful attention to data i
 
 ### 3.5 Till Management
 
-- **Service:** `TillService`
-  - Open/close till sessions per branch
-  - Track cash drawer (opening float, closing balance)
-  - Associate sales with tills
-- **Endpoints:**
-  - `POST /shops/{shop}/branches/{branch}/tills/open`
-  - `POST /shops/{shop}/tills/{till}/close`
-  - `GET /shops/{shop}/tills` — active tills
+- [x] **Migration:** `2026_03_15_000001_add_cash_tracking_to_tills_table` — adds `opening_float`, `closing_balance`, `closed_by` to existing `tills` table
+- [x] **Model:** `Till` — added new fillable fields, casts (`opening_float`, `closing_balance` as `decimal:2`), and `closedBy()` relationship
+- [x] **Factory:** `TillFactory` — default active state + `closed()` state
+- [x] **Policy:** `TillPolicy` — `viewAny`/`view` require `pos.access` OR `sales.view`; `create`/`close` require `pos.access`. Registered in `CoreServiceProvider`.
+- [x] **Service:** `TillService`
+  - `openTill()` — creates till with shop, branch, name, opener, opening float
+  - `closeTill()` — validates active, sets closing balance, closed_by, closed_at
+  - `getTillSummary()` — aggregates completed sales by payment method; computes `expected_cash = opening_float + cash_tendered - change_given`, `variance = closing_balance - expected_cash`; excludes reversed sales
+- [x] **Resource:** `TillResource` — id, shop_id, branch_id, name, is_active, opening_float, closing_balance, opened_at, closed_at, opened_by/closed_by (embedded), branch (whenLoaded), summary (via `additional`), sales_count (whenCounted)
+- [x] **Form Requests:** `OpenTillRequest` (branch_id, name, opening_float), `CloseTillRequest` (closing_balance)
+- [x] **Controller:** `TillController` — index (QueryBuilder: filter by branch_id, is_active; sort by opened_at, closed_at, name), show (with summary), open (201), close (200 with summary)
+- [x] **Endpoints:**
+  - `GET /shops/{shop}/tills` — list with filters
+  - `POST /shops/{shop}/tills/open` — open new till
+  - `GET /shops/{shop}/tills/{till}` — detail with summary
+  - `POST /shops/{shop}/tills/{till}/close` — close with reconciliation
+- [x] **Tests:** TillManagementTest (17) — all passing
+  - Open till (5): with float, zero default, branch validation, multiple active, name required
+  - Close till (5): with summary, already-closed rejection, closing_balance required, cash reconciliation, reversed sales excluded
+  - List/view (3): filter by is_active, filter by branch_id, show with summary
+  - Authorization (4): cashier open/close, viewer forbidden to open, viewer can list, accountant forbidden to open
 
 ---
 

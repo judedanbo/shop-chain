@@ -21,6 +21,9 @@ class Till extends BaseModel
         'opened_at',
         'closed_at',
         'is_active',
+        'opening_float',
+        'closing_balance',
+        'closed_by',
         'discount',
         'discount_input',
         'discount_type',
@@ -32,6 +35,8 @@ class Till extends BaseModel
             'opened_at' => 'datetime',
             'closed_at' => 'datetime',
             'is_active' => 'boolean',
+            'opening_float' => 'decimal:2',
+            'closing_balance' => 'decimal:2',
             'discount' => 'decimal:2',
             'discount_input' => 'decimal:2',
             'discount_type' => DiscountType::class,
@@ -50,6 +55,11 @@ class Till extends BaseModel
     public function openedBy(): BelongsTo
     {
         return $this->belongsTo(\App\Models\User::class, 'opened_by');
+    }
+
+    public function closedBy(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'closed_by');
     }
 
     public function sales(): HasMany
