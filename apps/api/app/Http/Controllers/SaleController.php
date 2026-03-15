@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Sale\CreateSaleRequest;
+use App\Http\Requests\Sale\RequestReversalRequest;
+use App\Http\Requests\Sale\ReverseSaleRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use ShopChain\Core\Models\Sale;
@@ -60,6 +62,42 @@ class SaleController extends Controller
 
         $sale->load(['items.product', 'payments', 'customer', 'branch', 'cashier'])
             ->loadCount('items');
+
+        return (new SaleResource($sale))->response();
+    }
+
+    public function reverse(ReverseSaleRequest $request, Shop $shop, Sale $sale): JsonResponse
+    {
+        $this->authorize('reverse', $sale);
+
+        $sale = $this->saleService->reverseSale($sale, $request->user(), $request->validated('reason'));
+
+        return (new SaleResource($sale))->response();
+    }
+
+    public function requestReversal(RequestReversalRequest $request, Shop $shop, Sale $sale): JsonResponse
+    {
+        $this->authorize('requestReversal', $sale);
+
+        $sale = $this->saleService->requestReversal($sale, $request->user(), $request->validated('reason'));
+
+        return (new SaleResource($sale))->response();
+    }
+
+    public function approveReversal(Request $request, Shop $shop, Sale $sale): JsonResponse
+    {
+        $this->authorize('approveReversal', $sale);
+
+        $sale = $this->saleService->approveReversal($sale, $request->user());
+
+        return (new SaleResource($sale))->response();
+    }
+
+    public function rejectReversal(Request $request, Shop $shop, Sale $sale): JsonResponse
+    {
+        $this->authorize('rejectReversal', $sale);
+
+        $sale = $this->saleService->rejectReversal($sale, $request->user());
 
         return (new SaleResource($sale))->response();
     }

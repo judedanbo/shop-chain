@@ -23,4 +23,24 @@ class SalePolicy
     {
         return $user->hasPermissionTo('pos.access');
     }
+
+    public function reverse(User $user, Sale $sale): bool
+    {
+        return $user->hasPermissionTo('pos.void');
+    }
+
+    public function requestReversal(User $user, Sale $sale): bool
+    {
+        return $user->hasPermissionTo('pos.access');
+    }
+
+    public function approveReversal(User $user, Sale $sale): bool
+    {
+        return $user->hasPermissionTo('pos.void');
+    }
+
+    public function rejectReversal(User $user, Sale $sale): bool
+    {
+        return $user->hasPermissionTo('pos.void');
+    }
 }

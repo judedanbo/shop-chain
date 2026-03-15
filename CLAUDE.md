@@ -97,4 +97,4 @@ All monetary values are stored as `bigint` in pesewas (GHS minor units). Default
 
 ## Development Status
 
-Phase 1 (Foundation) is complete. Current work is Phase 2 (Core Business Modules). See `DEVELOPMENT-PLAN.md` for the full roadmap and `FUNCTIONAL-SPEC.md` for feature requirements. `DATABASE-SCHEMA.md` documents all 52 tables.
+Phases 1 (Foundation), 2 (Core Business Modules), and 3.1–3.3 (POS Sales, Reversals, Receipt Verification) are complete. Current work is Phase 3.4+ (Sales Analytics, Till Management). See `DEVELOPMENT-PLAN.md` for the full roadmap and `FUNCTIONAL-SPEC.md` for feature requirements. `DATABASE-SCHEMA.md` documents all 52 tables.

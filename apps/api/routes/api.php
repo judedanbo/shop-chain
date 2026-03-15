@@ -13,6 +13,7 @@ use App\Http\Controllers\PosHeldOrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\SaleController;
+use App\Http\Controllers\SaleVerificationController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\StockTransferController;
@@ -27,6 +28,9 @@ use ShopChain\Core\Models\StockTransfer;
 
 Route::prefix('v1')->group(function () {
     Route::get('/health', fn () => response()->json(['status' => 'ok']));
+
+    Route::get('/verify/{token}', SaleVerificationController::class)
+        ->middleware('throttle:receipt-verify');
 
     // Public auth routes
     Route::prefix('auth')->middleware('throttle:auth')->group(function () {
@@ -155,6 +159,10 @@ Route::prefix('v1')->group(function () {
             Route::post('sales', [SaleController::class, 'store'])
                 ->middleware('enforce_plan:monthlyTransactions');
             Route::get('sales/{sale}', [SaleController::class, 'show']);
+            Route::post('sales/{sale}/reverse', [SaleController::class, 'reverse']);
+            Route::post('sales/{sale}/request-reversal', [SaleController::class, 'requestReversal']);
+            Route::post('sales/{sale}/approve-reversal', [SaleController::class, 'approveReversal']);
+            Route::post('sales/{sale}/reject-reversal', [SaleController::class, 'rejectReversal']);
 
             // Customers
             Route::apiResource('customers', CustomerController::class);

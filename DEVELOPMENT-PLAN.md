@@ -594,30 +594,42 @@ The transactional heart of the application. Requires careful attention to data i
   - [ ] Customer purchase history endpoint *(deferred)*
   - [ ] Customer search via Scout + Meilisearch *(deferred)*
 
-### 3.2 Sale Reversals
+### 3.2 Sale Reversals ✅
 
-- **Reversal workflow:**
-  - **Direct reversal** (owner/GM/manager — `pos_void: full`): immediate execution
-  - **Request reversal** (salesperson — `pos_void: partial`): creates pending_reversal, notifies managers
-  - **Approve/reject** (owner/GM/manager): processes or cancels the request
-- **Reversal side effects (fix known gap #4):**
-  - Restore product stock quantities
-  - Restore batch quantities (reverse FEFO deductions)
-  - Reverse customer stats (totalSpent, visits, loyaltyPts — clamped to 0)
-  - Audit trail entry
-- **Endpoints:**
+- [x] **Reversal workflow:**
+  - [x] **Direct reversal** (owner/GM/manager — `pos_void: full`): immediate execution
+  - [x] **Request reversal** (salesperson — `pos_void: partial`): creates pending_reversal
+  - [x] **Approve/reject** (owner/GM/manager): processes or cancels the request
+- [x] **Reversal side effects:**
+  - [x] Restore ProductLocation stock quantities
+  - [x] Restore batch quantities (reverse FEFO deductions, reactivate depleted batches)
+  - [x] Reverse customer stats (totalSpent, visits, loyaltyPts — clamped to 0)
+- [x] **Service:** `SaleService` *(reverseSale, requestReversal, approveReversal, rejectReversal, executeReversal — all in DB::transaction)*
+- [x] **Policy:** `SalePolicy` *(reverse → pos_void: full, requestReversal → pos_void: partial, approveReversal/rejectReversal → pos_void: full)*
+- [x] **Form Requests:** `ReverseSaleRequest`, `RequestReversalRequest` *(reason required)*
+- [x] **Endpoints (4):**
   - `POST /shops/{shop}/sales/{sale}/reverse`
   - `POST /shops/{shop}/sales/{sale}/request-reversal`
   - `POST /shops/{shop}/sales/{sale}/approve-reversal`
   - `POST /shops/{shop}/sales/{sale}/reject-reversal`
-- **Events:**
-  - `ReversalRequested`, `ReversalApproved`, `ReversalRejected`, `ReversalExecuted`
+- [x] **Tests:** SaleReversalTest (14) — all passing
+- **Deferred items:**
+  - [ ] `ReversalRequested`/`ReversalApproved`/`ReversalRejected`/`ReversalExecuted` events *(deferred to Phase 7)*
+  - [ ] Audit trail entry *(deferred to Phase 7 — spatie/laravel-activitylog)*
 
-### 3.3 Receipt Verification (Public)
+### 3.3 Receipt Verification (Public) ✅
 
-- **Endpoint:** `GET /verify/{token}` — public, no auth
-- Returns sale details for QR code verification
-- Token lookup via indexed column
+- [x] **Migration:** Unique index on `sales.verify_token` for efficient lookups and data integrity
+- [x] **Endpoint:** `GET /api/v1/verify/{token}` — public, no auth, rate-limited (30 req/min per IP via `throttle:receipt-verify`)
+- [x] **Controller:** `SaleVerificationController` *(invokable, uses `Sale::withoutGlobalScopes()` for tenant-free lookup)*
+- [x] **Resource:** `SaleVerificationResource` *(privacy-safe — no IDs, no internal fields exposed)*
+  - [x] Customer name masking ("Kwame Boateng" → "Kwame B.", single names returned as-is, null → null)
+  - [x] Payment method safe labels: Cash → "Cash", Card → "Card", Momo → "Mobile Money", multiple → "Split Payment"
+  - [x] Discount/discount_type only included when discount > 0
+  - [x] Reversal fields always present (null when not applicable)
+  - [x] Items with product name, quantity, unit_price, line_total
+- [x] **Tests:** SaleVerificationTest (11) — all passing
+  - Valid token, reversed sale, pending-reversal sale, name masking, null customer, payment method labels, sensitive field exclusion, 404 for invalid token, no auth required, item details, name masking edge cases
 
 ### 3.4 Sales Analytics
 

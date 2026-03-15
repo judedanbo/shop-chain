@@ -12,6 +12,7 @@ use ShopChain\Core\Enums\PayMethod;
 use ShopChain\Core\Enums\SaleSource;
 use ShopChain\Core\Enums\SaleStatus;
 use ShopChain\Core\Models\Batch;
+use ShopChain\Core\Models\Customer;
 use ShopChain\Core\Models\Product;
 use ShopChain\Core\Models\ProductLocation;
 use ShopChain\Core\Models\Sale;
@@ -250,5 +251,139 @@ class SaleService
             // 14. Return sale with relations
             return $sale->load(['items.product', 'payments', 'customer']);
         });
+    }
+
+    public function reverseSale(Sale $sale, User $user, string $reason): Sale
+    {
+        if ($sale->status !== SaleStatus::Completed) {
+            throw ValidationException::withMessages([
+                'status' => ['Only completed sales can be reversed.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($sale, $user, $reason) {
+            $this->executeReversal($sale, $user, $reason);
+
+            return $sale->load(['items.product', 'payments', 'customer']);
+        });
+    }
+
+    public function requestReversal(Sale $sale, User $user, string $reason): Sale
+    {
+        if ($sale->status !== SaleStatus::Completed) {
+            throw ValidationException::withMessages([
+                'status' => ['Only completed sales can have a reversal requested.'],
+            ]);
+        }
+
+        $sale->update([
+            'status' => SaleStatus::PendingReversal,
+            'reversal_requested_by' => $user->id,
+            'reversal_requested_at' => now(),
+            'reversal_reason' => $reason,
+        ]);
+
+        return $sale;
+    }
+
+    public function approveReversal(Sale $sale, User $user): Sale
+    {
+        if ($sale->status !== SaleStatus::PendingReversal) {
+            throw ValidationException::withMessages([
+                'status' => ['Only pending-reversal sales can be approved.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($sale, $user) {
+            $this->executeReversal($sale, $user, $sale->reversal_reason);
+
+            return $sale->load(['items.product', 'payments', 'customer']);
+        });
+    }
+
+    public function rejectReversal(Sale $sale, User $user): Sale
+    {
+        if ($sale->status !== SaleStatus::PendingReversal) {
+            throw ValidationException::withMessages([
+                'status' => ['Only pending-reversal sales can be rejected.'],
+            ]);
+        }
+
+        $sale->update([
+            'status' => SaleStatus::Completed,
+            'reversal_requested_by' => null,
+            'reversal_requested_at' => null,
+            'reversal_reason' => null,
+        ]);
+
+        return $sale;
+    }
+
+    private function executeReversal(Sale $sale, User $user, string $reason): void
+    {
+        $sale->load('items.product');
+
+        // 1. Restore stock and batches for each item
+        foreach ($sale->items as $item) {
+            // Restore ProductLocation stock
+            ProductLocation::where('product_id', $item->product_id)
+                ->where('branch_id', $sale->branch_id)
+                ->increment('quantity', $item->quantity);
+
+            // Restore batch quantities (replay-FEFO)
+            if ($item->product->batch_tracking && $item->batch_id) {
+                $remaining = $item->quantity;
+
+                $batches = Batch::where('product_id', $item->product_id)
+                    ->where('shop_id', $sale->shop_id)
+                    ->whereColumn('quantity', '<', 'initial_quantity')
+                    ->orderByRaw('expiry_date ASC NULLS LAST')
+                    ->get();
+
+                // Start restoring from the batch matching item.batch_id
+                $started = false;
+                foreach ($batches as $batch) {
+                    if ($remaining <= 0) {
+                        break;
+                    }
+
+                    if (! $started) {
+                        if ($batch->id !== $item->batch_id) {
+                            continue;
+                        }
+                        $started = true;
+                    }
+
+                    $restore = min($remaining, $batch->initial_quantity - $batch->quantity);
+                    $batch->increment('quantity', $restore);
+
+                    if ($batch->status === BatchStatus::Depleted) {
+                        $batch->update(['status' => BatchStatus::Active]);
+                    }
+
+                    $remaining -= $restore;
+                }
+            }
+        }
+
+        // 2. Reverse customer stats (clamped to 0)
+        if ($sale->customer_id) {
+            $customer = Customer::find($sale->customer_id);
+            $loyaltyPointsToRemove = (int) floor((float) $sale->total / 10);
+
+            $customer->update([
+                'visits' => max(0, $customer->visits - 1),
+                'total_spent' => max(0, (float) $customer->total_spent - (float) $sale->total),
+                'loyalty_pts' => max(0, $customer->loyalty_pts - $loyaltyPointsToRemove),
+            ]);
+        }
+
+        // 3. Update sale status
+        $sale->update([
+            'status' => SaleStatus::Reversed,
+            'reversed_at' => now(),
+            'reversed_by' => $user->id,
+            'reversal_reason' => $reason,
+        ]);
     }
 }
