@@ -1,15 +1,13 @@
 <?php
 
 use App\Models\User;
+use App\Services\PlanEnforcementService;
 use Laravel\Passport\Passport;
 use ShopChain\Core\Enums\AdminRole;
 use ShopChain\Core\Enums\AdminTeamStatus;
-use ShopChain\Core\Enums\MemberStatus;
-use ShopChain\Core\Enums\ShopRole;
 use ShopChain\Core\Models\AdminUser;
 use ShopChain\Core\Models\BillingExemption;
 use ShopChain\Core\Models\Shop;
-use ShopChain\Core\Models\ShopMember;
 
 function createAdminForExemptions(): User
 {
@@ -106,7 +104,7 @@ it('exempted shop bypasses plan limits', function () {
         'expires_at' => now()->addMonth(),
     ]);
 
-    $service = app(\App\Services\PlanEnforcementService::class);
+    $service = app(PlanEnforcementService::class);
     expect($service->isExempt($shop))->toBeTrue()
         ->and($service->canAdd($shop, 'shops'))->toBeTrue();
 });

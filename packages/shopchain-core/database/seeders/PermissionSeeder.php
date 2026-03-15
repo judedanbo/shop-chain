@@ -201,5 +201,30 @@ class PermissionSeeder extends Seeder
             $role = Role::findOrCreate($roleName, $guard);
             $role->syncPermissions($permissions);
         }
+
+        // --- Admin Roles (5) ---
+        $adminRolePermissions = [
+            'super_admin' => $adminPermissions, // all 12
+            'admin' => [
+                'admin.shops.manage', 'admin.users.manage', 'admin.billing.manage',
+                'admin.subscriptions.manage', 'admin.announcements.manage',
+                'admin.audit.view', 'admin.audit.investigate', 'admin.expenses.manage',
+                'admin.investors.manage', 'admin.support.manage',
+            ],
+            'billing_manager' => [
+                'admin.billing.manage', 'admin.subscriptions.manage',
+                'admin.expenses.manage', 'admin.investors.manage',
+            ],
+            'support_agent' => [
+                'admin.shops.manage', 'admin.users.manage',
+                'admin.announcements.manage', 'admin.support.manage',
+            ],
+            'auditor' => ['admin.audit.view', 'admin.investors.manage'],
+        ];
+
+        foreach ($adminRolePermissions as $roleName => $permissions) {
+            $role = Role::findOrCreate($roleName, $guard);
+            $role->syncPermissions($permissions);
+        }
     }
 }

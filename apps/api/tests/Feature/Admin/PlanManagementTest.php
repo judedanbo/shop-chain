@@ -2,27 +2,11 @@
 
 use App\Models\User;
 use Laravel\Passport\Passport;
-use ShopChain\Core\Enums\AdminRole;
-use ShopChain\Core\Enums\AdminTeamStatus;
 use ShopChain\Core\Enums\PlanLifecycle;
 use ShopChain\Core\Enums\SubscriptionStatus;
-use ShopChain\Core\Models\AdminUser;
 use ShopChain\Core\Models\Plan;
+use ShopChain\Core\Models\Shop;
 use ShopChain\Core\Models\Subscription;
-
-function createAdminUser(): User
-{
-    seedPermissionsAndPlans();
-    $user = User::factory()->create();
-    AdminUser::create([
-        'user_id' => $user->id,
-        'role' => AdminRole::SuperAdmin,
-        'status' => AdminTeamStatus::Active,
-    ]);
-    Passport::actingAs($user);
-
-    return $user;
-}
 
 it('lists all plans for admin', function () {
     createAdminUser();
@@ -92,7 +76,7 @@ it('retires plan with subscriber migration', function () {
     $oldPlan = Plan::factory()->create(['id' => 'old-plan', 'lifecycle' => PlanLifecycle::Retiring]);
 
     $user = User::factory()->create();
-    $shop = \ShopChain\Core\Models\Shop::factory()->create(['owner_id' => $user->id]);
+    $shop = Shop::factory()->create(['owner_id' => $user->id]);
 
     Subscription::withoutGlobalScopes()->create([
         'shop_id' => $shop->id,

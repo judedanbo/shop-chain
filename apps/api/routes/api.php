@@ -1,9 +1,22 @@
 <?php
 
+use App\Http\Controllers\Admin\AnnouncementController;
+use App\Http\Controllers\Admin\AnomalyController;
+use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BillingExemptionController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DetectionRuleController;
+use App\Http\Controllers\Admin\ExpenseController;
+use App\Http\Controllers\Admin\FinanceController;
+use App\Http\Controllers\Admin\InvestigationController;
+use App\Http\Controllers\Admin\InvestorController;
 use App\Http\Controllers\Admin\PlanController as AdminPlanController;
+use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\ShopController as AdminShopController;
 use App\Http\Controllers\Admin\SubscriptionController as AdminSubscriptionController;
+use App\Http\Controllers\Admin\TeamController as AdminTeamController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\TokenController;
@@ -13,7 +26,10 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\GoodsReceiptController;
+use App\Http\Controllers\HeldOrderController;
 use App\Http\Controllers\InviteController;
+use App\Http\Controllers\KitchenOrderController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PosHeldOrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseOrderController;
@@ -24,21 +40,18 @@ use App\Http\Controllers\ShopController;
 use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TillController;
 use App\Http\Controllers\TillPaymentController;
-use App\Http\Controllers\HeldOrderController;
-use App\Http\Controllers\KitchenOrderController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\TeamController;
 use App\Http\Controllers\UnitOfMeasureController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\Webhook\PaystackWebhookController;
 use Illuminate\Support\Facades\Route;
 use ShopChain\Core\Models\GoodsReceipt;
 use ShopChain\Core\Models\KitchenOrderItem;
+use ShopChain\Core\Models\Notification;
 use ShopChain\Core\Models\PurchaseOrder;
 use ShopChain\Core\Models\ShopMember;
-use ShopChain\Core\Models\Notification;
 use ShopChain\Core\Models\StockAdjustment;
 use ShopChain\Core\Models\StockTransfer;
 
@@ -289,5 +302,85 @@ Route::prefix('v1')->group(function () {
             Route::post('shops/{shop}/exemptions', [BillingExemptionController::class, 'store']);
             Route::patch('shops/{shop}/exemptions/{exemption}', [BillingExemptionController::class, 'update']);
             Route::delete('shops/{shop}/exemptions/{exemption}', [BillingExemptionController::class, 'destroy']);
+
+            // Admin Team
+            Route::get('team', [AdminTeamController::class, 'index']);
+            Route::post('team/invite', [AdminTeamController::class, 'invite']);
+            Route::get('team/{adminUser}', [AdminTeamController::class, 'show']);
+            Route::patch('team/{adminUser}/role', [AdminTeamController::class, 'updateRole']);
+            Route::patch('team/{adminUser}/status', [AdminTeamController::class, 'updateStatus']);
+            Route::delete('team/{adminUser}', [AdminTeamController::class, 'destroy']);
+
+            // Dashboard
+            Route::get('dashboard/overview', [DashboardController::class, 'overview']);
+            Route::get('dashboard/user-growth', [DashboardController::class, 'userGrowth']);
+            Route::get('dashboard/revenue-trend', [DashboardController::class, 'revenueTrend']);
+
+            // Shop Management
+            Route::get('shops', [AdminShopController::class, 'index']);
+            Route::get('shops/{shop}', [AdminShopController::class, 'show']);
+            Route::post('shops/{shop}/suspend', [AdminShopController::class, 'suspend']);
+            Route::post('shops/{shop}/reactivate', [AdminShopController::class, 'reactivate']);
+
+            // User Management
+            Route::get('users', [AdminUserController::class, 'index']);
+            Route::get('users/{user}', [AdminUserController::class, 'show']);
+            Route::patch('users/{user}/status', [AdminUserController::class, 'updateStatus']);
+
+            // Announcements
+            Route::apiResource('announcements', AnnouncementController::class);
+            Route::post('announcements/{announcement}/publish', [AnnouncementController::class, 'publish']);
+            Route::post('announcements/{announcement}/unpublish', [AnnouncementController::class, 'unpublish']);
+
+            // Platform Settings
+            Route::get('settings', [SettingsController::class, 'index']);
+            Route::patch('settings', [SettingsController::class, 'update']);
+            Route::post('settings/reset', [SettingsController::class, 'reset']);
+
+            // Finances
+            Route::prefix('finances')->group(function () {
+                Route::get('dashboard', [FinanceController::class, 'dashboard']);
+                Route::get('revenue', [FinanceController::class, 'revenue']);
+                Route::get('monthly-summary', [FinanceController::class, 'monthlySummary']);
+                Route::get('expenses-by-category', [FinanceController::class, 'expensesByCategory']);
+                Route::get('profit-and-loss', [FinanceController::class, 'profitAndLoss']);
+            });
+
+            Route::apiResource('expenses', ExpenseController::class);
+
+            // Audit
+            Route::prefix('audit')->group(function () {
+                Route::get('events', [AuditController::class, 'events']);
+                Route::get('events/{auditEvent}', [AuditController::class, 'showEvent']);
+                Route::get('forensics/shops/{shop}', [AuditController::class, 'shopForensics']);
+                Route::get('forensics/users/{user}', [AuditController::class, 'userForensics']);
+            });
+
+            Route::apiResource('investigations', InvestigationController::class)->except('destroy');
+            Route::post('investigations/{investigation}/transition', [InvestigationController::class, 'transition']);
+            Route::post('investigations/{investigation}/notes', [InvestigationController::class, 'addNote']);
+            Route::post('investigations/{investigation}/events', [InvestigationController::class, 'linkEvent']);
+            Route::delete('investigations/{investigation}/events/{auditEvent}', [InvestigationController::class, 'unlinkEvent']);
+
+            Route::get('anomalies', [AnomalyController::class, 'index']);
+            Route::patch('anomalies/{anomaly}/status', [AnomalyController::class, 'updateStatus']);
+            Route::post('anomalies/{anomaly}/investigate', [AnomalyController::class, 'linkToInvestigation']);
+
+            Route::apiResource('detection-rules', DetectionRuleController::class);
+            Route::post('detection-rules/{detectionRule}/toggle', [DetectionRuleController::class, 'toggle']);
+
+            // Investors
+            Route::prefix('investors')->group(function () {
+                Route::get('engagement', [InvestorController::class, 'engagement']);
+                Route::get('funnel', [InvestorController::class, 'funnel']);
+                Route::get('growth', [InvestorController::class, 'growth']);
+                Route::get('cohort-retention', [InvestorController::class, 'cohortRetention']);
+                Route::get('deck', [InvestorController::class, 'deck']);
+            });
+
+            Route::get('milestones', [InvestorController::class, 'milestones']);
+            Route::post('milestones', [InvestorController::class, 'storeMilestone']);
+            Route::put('milestones/{milestone}', [InvestorController::class, 'updateMilestone']);
+            Route::delete('milestones/{milestone}', [InvestorController::class, 'destroyMilestone']);
         });
 });

@@ -5,8 +5,11 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
 use ShopChain\Core\Database\Seeders\PermissionSeeder;
 use ShopChain\Core\Database\Seeders\PlanSeeder;
+use ShopChain\Core\Enums\AdminRole;
+use ShopChain\Core\Enums\AdminTeamStatus;
 use ShopChain\Core\Enums\MemberStatus;
 use ShopChain\Core\Enums\ShopRole;
+use ShopChain\Core\Models\AdminUser;
 use ShopChain\Core\Models\Shop;
 use ShopChain\Core\Models\ShopMember;
 use Spatie\Permission\PermissionRegistrar;
@@ -102,4 +105,23 @@ function createMemberWithRole(Shop $shop, ShopRole $role): array
     Passport::actingAs($user);
 
     return compact('user', 'shop', 'member');
+}
+
+/**
+ * Create an authenticated admin user (SuperAdmin by default).
+ */
+function createAdminUser(AdminRole $role = AdminRole::SuperAdmin): User
+{
+    seedPermissionsAndPlans();
+
+    $user = User::factory()->create();
+    AdminUser::create([
+        'user_id' => $user->id,
+        'role' => $role,
+        'status' => AdminTeamStatus::Active,
+    ]);
+
+    Passport::actingAs($user);
+
+    return $user;
 }
