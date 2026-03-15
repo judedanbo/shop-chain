@@ -43,4 +43,9 @@ class SalePolicy
     {
         return $user->hasPermissionTo('pos.void');
     }
+
+    public function viewAnalytics(User $user): bool
+    {
+        return $user->hasPermissionTo('reports.view');
+    }
 }

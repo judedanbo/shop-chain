@@ -633,17 +633,20 @@ The transactional heart of the application. Requires careful attention to data i
 
 ### 3.4 Sales Analytics
 
-- **Service:** `SalesAnalyticsService`
-  - Revenue by period (daily, weekly, monthly)
-  - Top products by quantity and revenue
-  - Sales by payment method
-  - Sales by cashier
-  - Sales by branch
-  - Discount analysis
-  - Feature-gated: `Feature::for($shop)->active('reports')` via Pennant (Free plan excluded)
-- **Endpoints:**
-  - `GET /shops/{shop}/sales/analytics` — with period and grouping params
-  - Filtering via `spatie/laravel-query-builder`: `?filter[date_from]=...&filter[branch_id]=...&sort=-revenue`
+- [x] **Service:** `SalesAnalyticsService` — single `getAnalytics(Shop, ?branchId)` method returning all dashboard data
+  - [x] KPIs: today's revenue (+ % change vs yesterday), transactions, avg order value, items sold, discounts given (+ % of gross)
+  - [x] Period comparison: today/yesterday/this_week/this_month with revenue, transactions, items_sold, discounts
+  - [x] Charts: 7-day revenue trend, payment method breakdown, hourly distribution (6–22h with peak), top 10 products by quantity, customer mix (registered vs walk-in)
+  - [x] Projections: daily average, weekly/monthly projections from MTD data
+  - [x] Feature-gated: `feature:reports` middleware via Pennant; authorized via `reports.view` permission (SalePolicy::viewAnalytics)
+- [x] **Endpoint:** `GET /shops/{shop}/sales/analytics` — optional `?branch_id=` filter, returns ~2KB JSON
+- [x] **Controller:** `SalesAnalyticsController` — single-action invokable controller
+- [x] **Policy:** `SalePolicy::viewAnalytics` — requires `reports.view` permission
+- [x] **Tests:** SalesAnalyticsTest (17) — all passing
+  - Data correctness (KPI values, zeros, branch filtering, % change, payment methods, hourly distribution, top products, customer mix, projections, reversed exclusion, discounts)
+  - Authorization (owner 200, viewer 200, cashier 403)
+  - Feature gate (reports inactive → 403)
+  - Response structure validation
 
 ### 3.5 Till Management
 
