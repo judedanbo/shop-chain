@@ -23,12 +23,14 @@ use App\Http\Controllers\TillController;
 use App\Http\Controllers\TillPaymentController;
 use App\Http\Controllers\HeldOrderController;
 use App\Http\Controllers\KitchenOrderController;
+use App\Http\Controllers\TeamController;
 use App\Http\Controllers\UnitOfMeasureController;
 use App\Http\Controllers\WarehouseController;
 use Illuminate\Support\Facades\Route;
 use ShopChain\Core\Models\GoodsReceipt;
 use ShopChain\Core\Models\KitchenOrderItem;
 use ShopChain\Core\Models\PurchaseOrder;
+use ShopChain\Core\Models\ShopMember;
 use ShopChain\Core\Models\StockAdjustment;
 use ShopChain\Core\Models\StockTransfer;
 
@@ -116,6 +118,7 @@ Route::prefix('v1')->group(function () {
             Route::model('receipt', GoodsReceipt::class);
             Route::model('po', PurchaseOrder::class);
             Route::model('item', KitchenOrderItem::class);
+            Route::model('member', ShopMember::class);
 
             // Warehouses
             Route::apiResource('warehouses', WarehouseController::class)->except('store');
@@ -203,6 +206,16 @@ Route::prefix('v1')->group(function () {
             Route::post('kitchen-orders/{kitchenOrder}/cancel', [KitchenOrderController::class, 'cancel']);
             Route::post('kitchen-orders/{kitchenOrder}/items/{item}/serve', [KitchenOrderController::class, 'serveItem'])
                 ->scopeBindings();
+
+            // Team Management
+            Route::get('team', [TeamController::class, 'index']);
+            Route::post('team/invite', [TeamController::class, 'invite'])
+                ->middleware('enforce_plan:teamPerShop');
+            Route::get('team/{member}', [TeamController::class, 'show']);
+            Route::patch('team/{member}/role', [TeamController::class, 'changeRole']);
+            Route::patch('team/{member}/status', [TeamController::class, 'updateStatus']);
+            Route::patch('team/{member}/branches', [TeamController::class, 'assignBranches']);
+            Route::delete('team/{member}', [TeamController::class, 'destroy']);
 
             // Bar Held Orders
             Route::get('held-orders', [HeldOrderController::class, 'index']);

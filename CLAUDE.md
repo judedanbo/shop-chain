@@ -97,4 +97,4 @@ All monetary values are stored as `bigint` in pesewas (GHS minor units). Default
 
 ## Development Status
 
-Phases 1 (Foundation), 2 (Core Business Modules), 3.1–3.5 (POS Sales, Reversals, Receipt Verification, Sales Analytics, Till Management), 4.1 (Kitchen Order System), 4.2 (Bar POS Extensions), and 4.3 (Bar Held Orders) are complete. Current work is Phase 5+ (Customer Management). See `DEVELOPMENT-PLAN.md` for the full roadmap and `FUNCTIONAL-SPEC.md` for feature requirements. `DATABASE-SCHEMA.md` documents all 52 tables.
+Phases 1 (Foundation), 2 (Core Business Modules), 3.1–3.5 (POS Sales, Reversals, Receipt Verification, Sales Analytics, Till Management), 4.1 (Kitchen Order System), 4.2 (Bar POS Extensions), 4.3 (Bar Held Orders), 5 (Customer Management), and 6.1 (Team Management) are complete. Current work is Phase 6.2+ (Invitation Flow). See `DEVELOPMENT-PLAN.md` for the full roadmap and `FUNCTIONAL-SPEC.md` for feature requirements. `DATABASE-SCHEMA.md` documents all 52 tables.

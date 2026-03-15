@@ -796,34 +796,38 @@ Real-time order flow between bar POS, kitchen display, and till management.
   - [ ] Purchase history endpoint (`GET /shops/{shop}/customers/{customer}/purchases`)
   - [ ] Customer search via Scout + Meilisearch
   - [ ] Walk-in customer auto-creation
-  - [ ] Points subtracted on reversal (clamped to 0) — Phase 3.2
+  - [x] Points subtracted on reversal (clamped to 0) — *implemented in SaleService::executeReversal*
 
 ---
 
 ## Phase 6 — Team & Permissions
 
-### 6.1 Team Management
+### 6.1 Team Management ✅
 
-- **Service:** `TeamService`
-  - Invite member (email invitation flow)
-  - Assign role per shop
-  - Assign to branches within shop
-  - Status management (active, invited, suspended, removed)
-  - Role hierarchy enforcement (can't invite roles at/above own level)
-- **Endpoints:**
-  - `GET /shops/{shop}/team`
-  - `POST /shops/{shop}/team/invite`
-  - `PATCH /shops/{shop}/team/{member}/role`
-  - `PATCH /shops/{shop}/team/{member}/status`
-  - `PATCH /shops/{shop}/team/{member}/branches` — branch assignments
-- **Business rules:**
-  - Team count enforces plan limit
-  - One role per user per shop
-  - 12 shop roles with 36 permissions (4-level system: full/partial/view/none)
-  - Roles: owner, general_manager, manager, bar_manager, waiter, kitchen_staff, inventory_manager, inventory_officer, salesperson, cashier, accountant, viewer
-  - 13 permission modules: Products, POS, Purchase Orders, Inventory (adjustments), Inventory (transfers), Dashboard, Team, Settings, Suppliers, Categories, Units, Warehouses, Bar/Kitchen
-  - Role hierarchy: owner > general_manager > manager > all others
-  - General Manager role only available on Max plan
+- [x] **Service:** `TeamService` *(inviteMember, changeRole, updateStatus, assignBranches, removeMember with role hierarchy enforcement)*
+- [x] **Policy:** `ShopMemberPolicy` *(team.view, team.manage, team.roles)*
+- [x] **Resource:** `ShopMemberResource` *(with user, branches, branches_count)*
+- [x] **Endpoints:**
+  - [x] `GET /shops/{shop}/team` — list with status/role/search filters
+  - [x] `POST /shops/{shop}/team/invite` — invite with `enforce_plan:teamPerShop`
+  - [x] `GET /shops/{shop}/team/{member}` — show with user + branches
+  - [x] `PATCH /shops/{shop}/team/{member}/role` — change role with hierarchy check
+  - [x] `PATCH /shops/{shop}/team/{member}/status` — suspend/reactivate
+  - [x] `PATCH /shops/{shop}/team/{member}/branches` — sync branch assignments
+  - [x] `DELETE /shops/{shop}/team/{member}` — soft remove (status=Removed, revoke Spatie role)
+- [x] **Tests:** TeamManagementTest (21 tests) — invite, role change, status, branch assignment, remove, list/show, authorization
+- [x] **Business rules:**
+  - [x] Team count enforces plan limit (`teamPerShop`)
+  - [x] One role per user per shop
+  - [x] 12 shop roles with 36 permissions (4-level system: full/partial/view/none)
+  - [x] Role hierarchy: owner (3) > general_manager (2) > manager (1) > all others (0) — actor must be strictly above target
+  - [x] General Manager role gated by `general-manager` Pennant feature flag (Max plan only)
+  - [x] Duplicate email per shop rejected
+  - [x] Cannot change/suspend/remove owner
+  - [x] Cannot self-suspend or self-remove
+  - [x] Branch assignment validates branches belong to shop
+- **Deferred items:**
+  - [ ] Email invitation flow (Phase 6.2)
 
 ### 6.2 Invitation Flow
 
